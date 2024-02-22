@@ -17,7 +17,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = "mongodb://localhost:27017"
+MONGODB_URL = "mongodb://10.100.102.9:27017"
 mongo_client = AsyncIOMotorClient(MONGODB_URL)
 db = mongo_client["safePlane"]
 users_collection = db["users"]
