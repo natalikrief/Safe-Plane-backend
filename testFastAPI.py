@@ -14,7 +14,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Initialize OpenAI client with your API key
 # openai_client = OpenAI(api_key=OPENAI_API_KEY)
-openai_client = OpenAI(api_key='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')
+openai_client = ''
 
 # MongoDB configuration
 MONGODB_URL = "mongodb://localhost:27017"
