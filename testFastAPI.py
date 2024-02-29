@@ -17,7 +17,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = "mongodb://10.100.102.9:27017"
+MONGODB_URL = "mongodb://127.0.0.1:27017"
 mongo_client = AsyncIOMotorClient(MONGODB_URL)
 db = mongo_client["safePlane"]
 users_collection = db["users"]
@@ -203,4 +203,4 @@ if __name__ == "__main__":
     import uvicorn
 
     # uvicorn.run(app, host="127.0.0.1", port=8000)
-    uvicorn.run(app, host="10.100.102.9", port=8000)
+    uvicorn.run(app, host="192.168.56.1", port=8000)
