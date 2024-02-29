@@ -190,6 +190,14 @@ def convert_to_json_serializable(user):
     return user
 
 
+@app.get("/test-api")
+async def test_api():
+    try:
+        return 'hello'
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Run the FastAPI application with Uvicorn
 if __name__ == "__main__":
     import uvicorn
