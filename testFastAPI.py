@@ -18,7 +18,8 @@ MONGO_DB = os.getenv("MONGO_DB")
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = MONGO_DB#"mongodb://127.0.0.1:27017"
+MONGODB_URL = MONGO_DB
+print("MONGODB_URL:", MONGODB_URL)
 mongo_client = MongoClient(MONGODB_URL)#, server_api=ServerApi('1')
 db = mongo_client["safeplan"]
 users_collection = db["users"]
@@ -181,6 +182,17 @@ async def test_api():
         return 'hello'
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/test-connection")
+async def test_connection():
+    try:
+        # Connect to MongoDB
+        # client = MongoClient(MONGO_DB)
+        db = mongo_client.get_default_database()
+        print("Connected to MongoDB successfully!")
+    except Exception as e:
+        print("Error connecting to MongoDB:", e)
 
 
 # Run the FastAPI application with Uvicorn
