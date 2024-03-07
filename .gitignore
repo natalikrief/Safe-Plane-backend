@@ -2,10 +2,4 @@
 __pycache__/
 .venv/
 venv/
-
-# Django files
-staticfiles/
-../python-getting-started/db.sqlite3
-
-# macOS files
-.DS_Store
+.env
