@@ -18,7 +18,7 @@ MONGO_DB = os.getenv("MONGO_DB")
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = f'mongodb+srv://safeplan:{MONGO_DB}@safe-plan-db.ew8bbr3.mongodb.net/?retryWrites=true&w=majority&appName=safe-plan-db'#"mongodb://127.0.0.1:27017"
+MONGODB_URL = MONGO_DB#"mongodb://127.0.0.1:27017"
 mongo_client = MongoClient(MONGODB_URL)#, server_api=ServerApi('1')
 db = mongo_client["safeplan"]
 users_collection = db["users"]
