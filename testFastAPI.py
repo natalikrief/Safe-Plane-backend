@@ -190,9 +190,9 @@ async def test_connection():
         # Connect to MongoDB
         # client = MongoClient(MONGO_DB)
         db = mongo_client.get_default_database()
-        print("Connected to MongoDB successfully!")
+        return MONGODB_URL
     except Exception as e:
-        print("Error connecting to MongoDB:", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Run the FastAPI application with Uvicorn
