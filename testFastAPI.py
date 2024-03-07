@@ -3,8 +3,6 @@ from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-from ip2geotools.databases.noncommercial import DbIpCity
-from motor.motor_asyncio import AsyncIOMotorClient
 from openai import OpenAI
 from passlib.hash import bcrypt
 from pymongo.mongo_client import MongoClient
