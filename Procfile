@@ -1,4 +1,4 @@
-web: gunicorn -w 4 -k uvicorn.workers.UvicornWorker testFastAPI:app --timeout 150 --keep-alive 5
+web: gunicorn -w 4 -k uvicorn.workers.UvicornWorker testFastAPI:app
 
 #web: gunicorn main.wsgi
 
