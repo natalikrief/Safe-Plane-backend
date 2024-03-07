@@ -14,8 +14,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 MONGO_DB = os.getenv("MONGO_DB")
 
 # Initialize OpenAI client with your API key
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
-# openai_client = ''
+# openai_client = OpenAI(api_key=OPENAI_API_KEY)
+openai_client = ''
 
 # MongoDB configuration
 MONGODB_URL = f'mongodb+srv://safeplan:{MONGO_DB}@safe-plan-db.ew8bbr3.mongodb.net/?retryWrites=true&w=majority&appName=safe-plan-db'#"mongodb://127.0.0.1:27017"
