@@ -1,12 +1,14 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
-from openai import OpenAI
-from motor.motor_asyncio import AsyncIOMotorClient
+import os
 from datetime import datetime
 from dotenv import load_dotenv
-import os
-from passlib.hash import bcrypt
+from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi.responses import JSONResponse
 from ip2geotools.databases.noncommercial import DbIpCity
+from motor.motor_asyncio import AsyncIOMotorClient
+from openai import OpenAI
+from passlib.hash import bcrypt
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
 app = FastAPI()
 load_dotenv()
@@ -18,8 +20,8 @@ MONGO_DB = os.getenv("MONGO_DB")
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = f'mongodb+srv://safeplan:safeplan123456@safe-plan-db.ew8bbr3.mongodb.net/?retryWrites=true&w=majority&appName=safe-plan-db'#"mongodb://127.0.0.1:27017"
-mongo_client = AsyncIOMotorClient(MONGODB_URL)
+MONGODB_URL = f'mongodb+srv://safeplan:{MONGO_DB}@safe-plan-db.ew8bbr3.mongodb.net/?retryWrites=true&w=majority&appName=safe-plan-db'#"mongodb://127.0.0.1:27017"
+mongo_client = MongoClient(MONGODB_URL)#, server_api=ServerApi('1')
 db = mongo_client["safeplan"]
 users_collection = db["users"]
 
@@ -36,7 +38,7 @@ def get_db():
     try:
         yield db
     finally:
-        pass  # You can add cleanup code here if needed
+        pass
 
 
 # Dependency to get OpenAI client
@@ -79,19 +81,20 @@ async def check_credentials(request: Request, db=Depends(get_db)):
         password = data["password"]
 
         # Retrieve user from MongoDB based on username
-        user_data = await db.users.find_one({"username": username})
+        users_data = db.users.find({"username": username})
 
-        if user_data:
-            # Get the stored password hash from the user data
-            stored_password_hash = user_data.get("password")
-            if stored_password_hash:
-                # Verify the provided password with the stored password hash
-                if bcrypt.verify(password, stored_password_hash):
-                    return JSONResponse(content={"message": "Credentials are valid"}, status_code=200)
+        if users_data:
+            for user in users_data:
+                # Get the stored password hash from the user data
+                stored_password_hash = user.get("password")
+                if stored_password_hash:
+                    # Verify the provided password with the stored password hash
+                    if bcrypt.verify(password, stored_password_hash):
+                        return JSONResponse(content={"message": "Credentials are valid"}, status_code=200)
+                    else:
+                        raise HTTPException(status_code=401, detail="Invalid credentials")
                 else:
-                    raise HTTPException(status_code=401, detail="Invalid credentials")
-            else:
-                raise HTTPException(status_code=401, detail="No password hash found for the user")
+                    raise HTTPException(status_code=401, detail="No password hash found for the user")
         else:
             raise HTTPException(status_code=401, detail="User not found")
 
@@ -108,9 +111,10 @@ async def add_user(request: Request, db=Depends(get_db)):
         password = data["password"]  # Assuming plaintext password for now
 
         # Check if the username already exists in the database
-        existing_user = await db.users.find_one({"username": username})
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Username already exists")
+        existing_users = db.users.find({"username": username})
+        for user in existing_users:
+            if user:
+                raise HTTPException(status_code=400, detail="Username already exists")
 
         # Hash the password using bcrypt (for security)
         hashed_password = bcrypt.hash(password)
@@ -119,31 +123,12 @@ async def add_user(request: Request, db=Depends(get_db)):
         new_user = {"username": username, "password": hashed_password, "created_at": datetime.utcnow()}
 
         # Insert the new user into the database
-        await db.users.insert_one(new_user)
+        db.users.insert_one(new_user)
 
         return JSONResponse(content={"message": "User added successfully"}, status_code=201)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/current-location")
-async def get_current_location(request: Request):
-    try:
-        # client_ip = '93.172.253.146'
-        # client_ip = '37.46.32.83'#'62.90.44.212'
-        client_ip = request.client.host
-        response = DbIpCity.get(client_ip, api_key='free')  # Use free API key
-        location_data = {
-            "latitude": response.latitude,
-            "longitude": response.longitude,
-            "city": response.city,
-            "region": response.region,
-            "country": response.country
-        }
-        return JSONResponse(content=location_data, status_code=200)
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @app.put("/update-user/{username}")
@@ -153,7 +138,7 @@ async def update_user(username: str, request: Request):
         data = await request.json()
 
         # Update user information in the database
-        result = await db.users.update_one({"username": username}, {"$set": data})
+        result = db.users.update_one({"username": username}, {"$set": data})
 
         if result.modified_count == 1:
             return {"message": "User updated successfully"}
@@ -170,13 +155,14 @@ async def update_user(username: str, request: Request):
 async def get_user(username: str):
     try:
         # Query the database to find the user by username
-        user = await users_collection.find_one({"username": username})
+        users = users_collection.find({"username": username})
 
         # If user is found, return user data as JSON
-        if user:
-            user["_id"] = str(user["_id"])
-            user = convert_to_json_serializable(user)
-            return JSONResponse(content=user, status_code=200)
+        if users:
+            for user in users:
+                user["_id"] = str(user["_id"])
+                user = convert_to_json_serializable(user)
+                return JSONResponse(content=user, status_code=200)
         else:
             raise HTTPException(status_code=404, detail="User not found")
     except Exception as e:
