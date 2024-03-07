@@ -11,15 +11,16 @@ from ip2geotools.databases.noncommercial import DbIpCity
 app = FastAPI()
 load_dotenv()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+MONGO_DB = os.getenv("MONGO_DB")
 
 # Initialize OpenAI client with your API key
 # openai_client = OpenAI(api_key=OPENAI_API_KEY)
 openai_client = ''
 
 # MongoDB configuration
-MONGODB_URL = "mongodb://127.0.0.1:27017"
+MONGODB_URL = f'mongodb+srv://safeplan:{MONGO_DB}@safe-plan-db.ew8bbr3.mongodb.net/?retryWrites=true&w=majority&appName=safe-plan-db'#"mongodb://127.0.0.1:27017"
 mongo_client = AsyncIOMotorClient(MONGODB_URL)
-db = mongo_client["safePlane"]
+db = mongo_client["safeplan"]
 users_collection = db["users"]
 
 
