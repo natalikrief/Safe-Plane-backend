@@ -190,7 +190,7 @@ async def test_connection():
         # Connect to MongoDB
         # client = MongoClient(MONGO_DB)
         # db = mongo_client.get_default_database()
-        return MONGODB_URL
+        return MONGO_DB
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
