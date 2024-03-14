@@ -1,26 +1,21 @@
 import os
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-from openai import OpenAI
 from passlib.hash import bcrypt
 from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
+import openai
 
 app = FastAPI()
 load_dotenv()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-MONGO_DB = os.getenv("MONGO_DB")
-
-# Initialize OpenAI client with your API key
-# openai_client = OpenAI(api_key=OPENAI_API_KEY)
-openai_client = ''
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # MongoDB configuration
+MONGO_DB = os.getenv("MONGO_DB")
 MONGODB_URL = MONGO_DB
-print("MONGODB_URL:", MONGODB_URL)
-mongo_client = MongoClient(MONGODB_URL)#, server_api=ServerApi('1')
+mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client["safeplan"]
 users_collection = db["users"]
 
@@ -40,32 +35,57 @@ def get_db():
         pass
 
 
-# Dependency to get OpenAI client
-def get_openai():
-    return openai_client
-
-
 # Endpoint to generate responses
 @app.post("/generate-response")
-async def generate_response(request: Request, openai: OpenAI = Depends(get_openai)):
+async def generate_response(request: Request):
     try:
         data = await request.json()
         user_message = data["user_message"]
 
-        # # Create a chat completion using OpenAI API
-        # completion = openai.ChatCompletion.create(
-        #     model="gpt-3.5-turbo",
-        #     messages=[
-        #         {"role": "system", "content": "You are a poetic assistant, skilled in explaining complex programming concepts with creative flair."},
-        #         {"role": "user", "content": user_message}
-        #     ]
-        # )
-        #
-        # # Extract the generated content from OpenAI response
-        # generated_text = completion['choices'][0]['message']['content']
-        generated_text = 'It is working'
+        # Create an OpenAI assistant
+        assistant = openai.OpenAI().beta.assistants.create(
+            name="Travel Planner",
+            instructions="You help planning travel itineraries, skilled in choosing places to stay,"
+                         " restaurants, tourist sites, and more.",
+            model="gpt-3.5-turbo",  # gpt-4-1106-preview
+        )
 
-        return JSONResponse(content={"response": generated_text}, status_code=200)
+        # Create a thread for communication
+        thread = openai.OpenAI().beta.threads.create()
+
+        # Send user message
+        message = openai.OpenAI().beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=user_message,
+        )
+
+        # Start the assistant
+        run = openai.OpenAI().beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant.id,
+            instructions="Please address the user's travel inquiries.",
+        )
+
+        # Wait for completion
+        while True:
+            run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+
+            if run.status == "completed":
+                messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
+
+                response = ""
+                for message in messages:
+                    if message.role == "assistant" and message.content[0].type == "text":
+                        response += message.content[0].text.value + "\n"
+
+                # Delete assistant
+                openai.OpenAI().beta.assistants.delete(assistant.id)
+
+                return JSONResponse(content={"response": response}, status_code=200)
+
+            else:
+                time.sleep(5)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
