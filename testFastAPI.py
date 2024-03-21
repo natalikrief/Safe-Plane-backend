@@ -35,7 +35,6 @@ mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client["safeplan"]
 users_collection = db["users"]
 
-
 # Define the User model
 class User:
     def __init__(self, username: str, created_at: datetime):
