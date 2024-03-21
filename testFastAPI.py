@@ -30,10 +30,11 @@ mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client["safeplan"]
 users_collection = db["users"]
 
+
 # Define the User model
 class User:
-    def __init__(self, username: str, created_at: datetime):
-        self.username = username
+    def __init__(self, email: str, created_at: datetime):
+        self.email = email
         self.created_at = created_at
 
 
@@ -101,16 +102,16 @@ async def generate_response(request: Request):
         return HTTPException(status_code=500, detail=str(e))
 
 
-# New API endpoint to check if username and password are valid
+# New API endpoint to check if email and password are valid
 @app.post("/check-credentials")
 async def check_credentials(request: Request, db=Depends(get_db)):
     try:
         data = await request.json()
-        username = data["username"]
+        email = data["email"]
         password = data["password"]
 
-        # Retrieve user from MongoDB based on username
-        users_data = db.users.find({"username": username})
+        # Retrieve user from MongoDB based on email
+        users_data = db.users.find({"email": email})
 
         if users_data:
             for user in users_data:
@@ -136,20 +137,20 @@ async def check_credentials(request: Request, db=Depends(get_db)):
 async def add_user(request: Request, db=Depends(get_db)):
     try:
         data = await request.json()
-        username = data["username"]
+        email = data["email"]
         password = data["password"]  # Assuming plaintext password for now
 
-        # Check if the username already exists in the database
-        existing_users = db.users.find({"username": username})
+        # Check if the email already exists in the database
+        existing_users = db.users.find({"email": email})
         for user in existing_users:
             if user:
-                raise HTTPException(status_code=400, detail="Username already exists")
+                raise HTTPException(status_code=400, detail="Email already exists")
 
         # Hash the password using bcrypt (for security)
         hashed_password = bcrypt.hash(password)
 
         # Create a new user object
-        new_user = {"username": username, "password": hashed_password, "created_at": datetime.utcnow()}
+        new_user = {"email": email, "password": hashed_password, "created_at": datetime.utcnow()}
 
         # Insert the new user into the database
         db.users.insert_one(new_user)
@@ -160,14 +161,14 @@ async def add_user(request: Request, db=Depends(get_db)):
         return HTTPException(status_code=500, detail=str(e))
 
 
-@app.put("/update-user/{username}")
-async def update_user(username: str, request: Request):
+@app.put("/update-user/{email}")
+async def update_user(email: str, request: Request):
     try:
         # Parse request JSON data
         data = await request.json()
 
         # Update user information in the database
-        result = db.users.update_one({"username": username}, {"$set": data})
+        result = db.users.update_one({"email": email}, {"$set": data})
 
         if result.modified_count == 1:
             return {"message": "User updated successfully"}
@@ -180,11 +181,11 @@ async def update_user(username: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/get-user/{username}")
-async def get_user(username: str):
+@app.get("/get-user/{email}")
+async def get_user(email: str):
     try:
-        # Query the database to find the user by username
-        users = users_collection.find({"username": username})
+        # Query the database to find the user by email
+        users = users_collection.find({"email": email})
 
         # If user is found, return user data as JSON
         if users:
