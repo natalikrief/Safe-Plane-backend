@@ -29,6 +29,9 @@ MONGODB_URL = MONGO_DB
 mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client["safeplan"]
 users_collection = db["users"]
+templates_collection = db["templates"]
+
+user_details = {}
 
 
 # Define the User model
@@ -51,7 +54,7 @@ def get_db():
 async def generate_response(request: Request):
     try:
         data = await request.json()
-        user_message = data["user_message"]
+        user_message = get_user_details(data)
 
         # Create an OpenAI assistant
         assistant = openai.OpenAI().beta.assistants.create(
@@ -222,6 +225,113 @@ async def test_connection():
         # client = MongoClient(MONGO_DB)
         # db = mongo_client.get_default_database()
         return MONGO_DB
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_user_details(data):
+    global user_details
+    try:
+        if data:
+            # Save user details globally
+            user_details = {
+                'vacationType': data['vacationType'],
+                'originCountry': data['originCountry'],
+                'destCountry': data['destCountry'],
+                'dates': data['dates'],
+                'ages': data['ages'],
+                'anotherCityChecked': data['anotherCityChecked'],
+                'returnCountry': data['returnCountry'],
+                'budget': data['budget'],
+                'hotel': data['hotel'],
+                'parking': data['parking'],
+                'beach': data['beach'],
+                'restaurants': data['restaurants'],
+                'bars': data['bars'],
+                'cities': data['cities'],
+                'carRentalCompany': data['carRenalCompany'],
+                'dietaryPreferences': data['dietaryPreferences'],
+                'additionalData': data['additionalData']
+            }
+
+            return get_templates(user_details['vacationType'])
+
+        else:
+            raise HTTPException(status_code=404, detail="User Details not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_general_templates():
+    try:
+        # Fetch the general-template from the database
+        temp = templates_collection.find_one({}, {"_id": 0, "general-template": 1})
+
+        # If template is found, return template data as JSON
+        if temp:
+            return temp['general-template']
+        else:
+            raise HTTPException(status_code=404, detail="General template not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# New API endpoint to get the relevant template from the database
+# @app.get("/get-template/{type_route}")
+def get_templates(vacationType: str):
+    try:
+        templates = templates_collection.find({"vacationType": vacationType})
+
+        # If template is found, return template data as JSON
+        if templates:
+            for temp in templates:
+                temp["_id"] = str(temp["_id"])
+                temp = temp['template']
+                return set_data_to_templates(temp)
+
+        else:
+            raise HTTPException(status_code=404, detail="Template not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def set_data_to_templates(template: str):
+    try:
+        if user_details['anotherCityChecked'] and not user_details['returnCountry'] == '':
+            template += f"We would like to return from the country {user_details['returnCountry']}. " \
+                        f"When the trip will include travel to this country. "
+        if not user_details['cities'] == []:
+            template += f"In {user_details['destCountry']} we would like to travel in the cities " \
+                        f"{user_details['cities']}. "
+        if not user_details['carRentalCompany'] == '':
+            template += f"In addition, notice that {user_details['carRentalCompany']} - for rent a car. "
+        if not user_details['dietaryPreferences'] == '':
+            template += f"Notice that I have dietary preferences - {user_details['dietaryPreferences']}," \
+                        f" so take this figure into account when you suggest me recommended restaurants and dishes. "
+        if not user_details['bars'] == '':
+            template += f"About bars - {user_details['bars']}. "
+        if not user_details['beach'] == '':
+            template += f"About beach - {user_details['beach']}. "
+        if not user_details['parking'] == '':
+            template += f"About parking - {user_details['parking']}. "
+        if not user_details['restaurants'] == '':
+            template += f"About restaurants - {user_details['restaurants']}. "
+        if not user_details['additionalData'] == []:
+            for additional in user_details['additionalData']:
+                template += f"In addition, it is important - {additional}. "
+
+        # Replace placeholders with variables
+        formatted_trip_details = template.format(ages=user_details['ages'], date1=str(user_details['dates'][0]),
+                                                 date2=str(user_details['dates'][1]),
+                                                 from_country=user_details['originCountry'],
+                                                 to_country=user_details['destCountry'],
+                                                 budget1=str(user_details['budget'][0]),
+                                                 budget2=str(user_details['budget'][1]), hotel=user_details['hotel'])
+
+        general_template = get_general_templates()
+        formatted_trip_details += general_template
+        return formatted_trip_details
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
