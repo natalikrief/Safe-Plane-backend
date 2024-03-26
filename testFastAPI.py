@@ -249,7 +249,7 @@ def get_user_details(data):
                 'restaurants': data['restaurants'],
                 'bars': data['bars'],
                 'cities': data['cities'],
-                'carRentalCompany': data['carRenalCompany'],
+                'carRentalCompany': data['carRentalCompany'],
                 'dietaryPreferences': data['dietaryPreferences'],
                 'additionalData': data['additionalData']
             }
