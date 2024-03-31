@@ -142,6 +142,8 @@ async def add_user(request: Request, db=Depends(get_db)):
         data = await request.json()
         email = data["email"]
         password = data["password"]  # Assuming plaintext password for now
+        full_name = data["fullName"]
+        terms = data["terms"]
 
         # Check if the email already exists in the database
         existing_users = db.users.find({"email": email})
@@ -153,7 +155,7 @@ async def add_user(request: Request, db=Depends(get_db)):
         hashed_password = bcrypt.hash(password)
 
         # Create a new user object
-        new_user = {"email": email, "password": hashed_password, "created_at": datetime.utcnow()}
+        new_user = {"email": email, "password": hashed_password, "fullName": full_name, "terms": terms}
 
         # Insert the new user into the database
         db.users.insert_one(new_user)
@@ -221,9 +223,6 @@ async def test_api():
 @app.get("/test-connection")
 async def test_connection():
     try:
-        # Connect to MongoDB
-        # client = MongoClient(MONGO_DB)
-        # db = mongo_client.get_default_database()
         return MONGO_DB
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -276,8 +275,6 @@ def get_general_templates():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# New API endpoint to get the relevant template from the database
-# @app.get("/get-template/{type_route}")
 def get_templates(vacationType: str):
     try:
         templates = templates_collection.find({"vacationType": vacationType})
@@ -341,4 +338,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0")
-    # uvicorn.run(app, host="192.168.56.1", port=8000)
