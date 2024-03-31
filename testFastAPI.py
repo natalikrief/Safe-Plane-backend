@@ -114,22 +114,21 @@ async def check_credentials(request: Request, db=Depends(get_db)):
         password = data["password"]
 
         # Retrieve user from MongoDB based on email
-        users_data = db.users.find({"email": email})
+        user = db.users.find_one({"email": email})
 
-        if users_data:
-            for user in users_data:
-                # Get the stored password hash from the user data
-                stored_password_hash = user.get("password")
-                if stored_password_hash:
-                    # Verify the provided password with the stored password hash
-                    if bcrypt.verify(password, stored_password_hash):
-                        return JSONResponse(content={"message": "Credentials are valid"}, status_code=200)
-                    else:
-                        raise HTTPException(status_code=401, detail="Invalid credentials")
+        if user:  # Check if user exists
+            # Get the stored password hash from the user data
+            stored_password_hash = user.get("password")
+            if stored_password_hash:
+                # Verify the provided password with the stored password hash
+                if bcrypt.verify(password, stored_password_hash):
+                    return JSONResponse(content={"message": "Credentials are valid"}, status_code=200)
                 else:
-                    raise HTTPException(status_code=401, detail="No password hash found for the user")
+                    return HTTPException(status_code=401, detail="Invalid credentials")
+            else:
+                return HTTPException(status_code=401, detail="No password hash found for the user")
         else:
-            raise HTTPException(status_code=401, detail="User not found")
+            return HTTPException(status_code=401, detail="User not found")
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
@@ -275,9 +274,9 @@ def get_general_templates():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def get_templates(vacationType: str):
+def get_templates(vacation_type: str):
     try:
-        templates = templates_collection.find({"vacationType": vacationType})
+        templates = templates_collection.find({"vacationType": vacation_type})
 
         # If template is found, return template data as JSON
         if templates:
