@@ -61,7 +61,7 @@ async def generate_response(request: Request):
             name="Travel Planner",
             instructions="You help planning travel itineraries, skilled in choosing places to stay,"
                          " restaurants, tourist sites, and more.",
-            model="gpt-3.5-turbo",  # gpt-4-1106-preview
+            model="gpt-3.5-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
         )
 
         # Create a thread for communication
@@ -249,7 +249,9 @@ def get_user_details(data):
                 'cities': data['cities'],
                 'carRentalCompany': data['carRentalCompany'],
                 'dietaryPreferences': data['dietaryPreferences'],
-                'additionalData': data['additionalData']
+                'additionalData': data['additionalData'],
+                'adultsAmount': data['adultsAmount'],
+                'childrenAmount': data['childrenAmount']
             }
 
             return get_templates(user_details['vacationType'])
@@ -299,6 +301,10 @@ def set_data_to_templates(template: str):
         if not user_details['cities'] == []:
             template += f"In {user_details['destCountry']} we would like to travel in the cities " \
                         f"{user_details['cities']}. "
+        if not user_details['adultsAmount'] is None:
+            template += f"We are {user_details['adultsAmount']} adults. "
+        if not user_details['childrenAmount'] is None:
+            template += f"Please includes {user_details['childrenAmount']} children. "
         if not user_details['carRentalCompany'] == '':
             template += f"In addition, notice that {user_details['carRentalCompany']} - for rent a car. "
         if not user_details['dietaryPreferences'] == '':
