@@ -61,7 +61,7 @@ async def generate_response(request: Request):
             name="Travel Planner",
             instructions="You help planning travel itineraries, skilled in choosing places to stay,"
                          " restaurants, tourist sites, and more.",
-            model="gpt-3.5-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
+            model="gpt-4-0125-preview",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
         )
 
         # Create a thread for communication
