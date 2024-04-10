@@ -242,7 +242,7 @@ def get_user_details(data):
                 'returnCountry': data['returnCountry'],
                 'budget': data['budget'],
                 'hotel': data['hotel'],
-                'starts': data['stars'],
+                'stars': data['stars'],
                 'parking': data['parking'],
                 'beach': data['beach'],
                 'restaurants': data['restaurants'],
