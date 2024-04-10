@@ -242,6 +242,7 @@ def get_user_details(data):
                 'returnCountry': data['returnCountry'],
                 'budget': data['budget'],
                 'hotel': data['hotel'],
+                'starts': data['stars'],
                 'parking': data['parking'],
                 'beach': data['beach'],
                 'restaurants': data['restaurants'],
@@ -272,6 +273,20 @@ def get_general_templates():
             return temp['general-template']
         else:
             raise HTTPException(status_code=404, detail="General template not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_json_template():
+    try:
+        # Fetch the general-template from the database
+        temp = templates_collection.find_one({}, {"_id": 0, "json-template": 1})
+
+        # If template is found, return template data as JSON
+        if temp:
+            return temp['json-template']
+        else:
+            raise HTTPException(status_code=404, detail="Json template not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -318,6 +333,8 @@ def set_data_to_templates(template: str):
             template += f"About parking - {user_details['parking']}. "
         if not user_details['restaurants'] == '':
             template += f"About restaurants - {user_details['restaurants']}. "
+        if not user_details['hotel'] == '':
+            template += f"About the hotel - {user_details['hotel']}. "
         if not user_details['additionalData'] == []:
             for additional in user_details['additionalData']:
                 template += f"In addition, it is important - {additional}. "
@@ -328,10 +345,12 @@ def set_data_to_templates(template: str):
                                                  from_country=user_details['originCountry'],
                                                  to_country=user_details['destCountry'],
                                                  budget1=str(user_details['budget'][0]),
-                                                 budget2=str(user_details['budget'][1]), hotel=user_details['hotel'])
+                                                 budget2=str(user_details['budget'][1]),
+                                                 stars=str(user_details['stars']))
 
         general_template = get_general_templates()
         formatted_trip_details += general_template
+        formatted_trip_details += "Please display your response as the json: " + get_json_template()
         return formatted_trip_details
 
     except Exception as e:
