@@ -8,6 +8,7 @@ from passlib.hash import bcrypt
 from pymongo.mongo_client import MongoClient
 import openai
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 app = FastAPI()
 origins = ["*"]
@@ -280,11 +281,15 @@ def get_general_templates():
 def get_json_template():
     try:
         # Fetch the general-template from the database
-        temp = templates_collection.find_one({}, {"_id": 0, "json-template": 1})
+        # temp = templates_collection.find_one({}, {"_id": 0, "json-template": 1})
+        temp = templates_collection.find({})
+        for json_temp in temp:
+            print(json)
+        json_string = json.dumps(json_temp['json-template'])
 
         # If template is found, return template data as JSON
-        if temp:
-            return temp['json-template']
+        if json_string:
+            return json_string  # temp['json-template']
         else:
             raise HTTPException(status_code=404, detail="Json template not found")
     except Exception as e:
@@ -350,7 +355,8 @@ def set_data_to_templates(template: str):
 
         general_template = get_general_templates()
         formatted_trip_details += general_template
-        formatted_trip_details += "Please display your response as the json: " + get_json_template()
+        formatted_trip_details += "Please reconstruct your response as a json like the template" \
+                                  "(I know you cannot provide RT data): " + get_json_template()
         return formatted_trip_details
 
     except Exception as e:
