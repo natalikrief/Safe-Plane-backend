@@ -291,7 +291,7 @@ async def generate_response(request: Request):
                 categories = categorize_output(response)
 
                 # return JSONResponse(content={"response": response}, status_code=200)
-                return JSONResponse(content=categories, status_code=200)
+                return JSONResponse(content=response, status_code=200)
 
             else:
                 time.sleep(5)
