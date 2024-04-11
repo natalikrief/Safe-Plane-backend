@@ -245,6 +245,8 @@ async def generate_response(request: Request):
         data = await request.json()
         user_message = get_user_details(data)
 
+        return JSONResponse(content=user_message, status_code=200)
+
         # Create an OpenAI assistant
         assistant = openai.OpenAI().beta.assistants.create(
             name="Travel Planner",
