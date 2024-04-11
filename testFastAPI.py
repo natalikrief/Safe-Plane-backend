@@ -54,158 +54,11 @@ def get_db():
 
 
 # Endpoint to generate responses
-@app.post("/generate-response1")
-async def generate_response1(request: Request):
+@app.post("/generate-response")
+async def generate_response(request: Request):
     try:
         data = await request.json()
         user_message = get_user_details(data)
-
-        json_template = {
-            "type": "object",
-            "properties": {
-                "tripIntroduction": {
-                    "type": "object",
-                    "properties": {
-                        "overview": {"type": "string"},
-                        "currency": {"type": "string"},
-                        "language": {"type": "string"},
-                        "weather": {"type": "string"},
-                        "attire": {"type": "string"}
-                    },
-                    "required": ["overview", "currency", "language", "weather", "attire"]
-                },
-                "arrival": {
-                    "type": "object",
-                    "properties": {
-                        "details": {"type": "string"}
-                    },
-                    "required": ["details"]
-                },
-                # "transportation": {
-                #     "type": "object",
-                #     "properties": {
-                #         "details": {"type": "string"}
-                #     },
-                #     "required": ["details"]
-                # },
-                "return": {
-                    "type": "object",
-                    "properties": {
-                        "details": {"type": "string"}
-                    },
-                    "required": ["details"]
-                },
-                "summary": {"type": "string"},
-                "Additional-Recommendations-And-Useful-Applications": {"type": "string"},
-                "day-details": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "date": {"type": "string"},
-                            "morning": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        # "restaurant": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "suggestionPlate": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                        #                  "website-link"]
-                                        # },
-                                        # "attractions": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
-                                        # }
-                                    }
-                                }
-                            },
-                            "noon": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        # "restaurant": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "suggestionPlate": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                        #                  "website-link"]
-                                        # },
-                                        # "attractions": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
-                                        # }
-                                    }
-                                }
-                            },
-                            "evening": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        # "restaurant": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "suggestionPlate": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                        #                  "website-link"]
-                                        # },
-                                        # "attractions": {
-                                        #     "type": "object",
-                                        #     "properties": {
-                                        #         "name": {"type": "string"},
-                                        #         "additionalData": {"type": "string"},
-                                        #         "full-address": {"type": "string"},
-                                        #         "website-link": {"type": "string"}
-                                        #     },
-                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
-                                        # }
-                                    }
-                                }
-                            },
-                            "accommodation-place": {"type": "string"},
-                            "transportation-and-prices": {"type": "string"},
-                        },
-                        "required": ["date", "morning", "noon", "evening", "accommodation-place",
-                                     "transportation-and-prices"]
-                    }
-                }
-            },
-            # "required": ["tripIntroduction", "arrival", "transportation", "return", "summary",
-            #              "Additional Recommendations And Useful Applications", "day-details"],
-            "required": ["tripIntroduction", "arrival", "return", "summary",
-                         "Additional Recommendations And Useful Applications", "day-details"],
-        }
 
         gpt_response = openai.chat.completions.create(
             model="gpt-4-0125-preview",  # Specify the GPT model
@@ -215,94 +68,95 @@ async def generate_response1(request: Request):
                     "content": user_message
                 }
             ],
-            functions=[
-                {
-                    "name": "create_trip_plan",
-                    "parameters": json_template  # Pass your JSON template here
-                }
-            ],
-            function_call={"name": "create_trip_plan"},  # Specify the function to call
-            timeout=240
+            temperature=1,
+            max_tokens=2500,
+            response_format={"type": "json_object"},
         )
 
-        # Extract the function call
-        function_call = gpt_response.choices[0].message.function_call
-
-        # Parse the JSON argument passed to the function
-        trip_plan = json.loads(function_call.arguments)
-
-        # Process the trip plan as needed
-
-        return JSONResponse(content={"trip_plan": trip_plan}, status_code=200)
+        trip_plan = gpt_response.choices[0].message.content.strip()
+        # return trip_plan
+        return JSONResponse(content=json.loads(trip_plan), status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate-response")
-async def generate_response(request: Request):
+@app.post("/get-query")
+async def get_query(request: Request):
     try:
         data = await request.json()
         user_message = get_user_details(data)
 
         return JSONResponse(content=user_message, status_code=200)
 
-        # Create an OpenAI assistant
-        assistant = openai.OpenAI().beta.assistants.create(
-            name="Travel Planner",
-            instructions="You help planning travel itineraries, skilled in choosing places to stay,"
-                         " restaurants, tourist sites, and more.",
-            model="gpt-4-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
-        )
-
-        # Create a thread for communication
-        thread = openai.OpenAI().beta.threads.create()
-
-        # Send user message
-        message = openai.OpenAI().beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=user_message,
-        )
-
-        # Start the assistant
-        run = openai.OpenAI().beta.threads.runs.create(
-            thread_id=thread.id,
-            assistant_id=assistant.id,
-            instructions="Please address the user's travel inquiries.",
-            timeout=240
-        )
-
-        # Wait for completion
-        while True:
-            run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-
-            if run.status == "completed":
-                messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
-
-                response = ""
-                for message in messages:
-                    if message.role == "assistant" and message.content[0].type == "text":
-                        response += message.content[0].text.value + "\n"
-
-                # Delete assistant
-                openai.OpenAI().beta.assistants.delete(assistant.id)
-
-                # print(response)
-
-                categories = categorize_output(response)
-
-                # return JSONResponse(content={"response": response}, status_code=200)
-                return JSONResponse(content=response, status_code=200)
-
-            else:
-                time.sleep(5)
-
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
 
 
-def categorize_output(output):
+# @app.post("/generate-response")
+# async def generate_response(request: Request):
+#     try:
+#         data = await request.json()
+#         # user_message = data['query']
+#         user_message = get_user_details(data)
+#
+#         # Create an OpenAI assistant
+#         assistant = openai.OpenAI().beta.assistants.create(
+#             name="Travel Planner",
+#             instructions="You help planning travel itineraries, skilled in choosing places to stay,"
+#                          " restaurants, tourist sites, and more.",
+#             model="gpt-4-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview gpt-4-turbo
+#         )
+#
+#         # Create a thread for communication
+#         thread = openai.OpenAI().beta.threads.create()
+#
+#         # Send user message
+#         message = openai.OpenAI().beta.threads.messages.create(
+#             thread_id=thread.id,
+#             role="user",
+#             content=user_message,
+#         )
+#
+#         # Start the assistant
+#         run = openai.OpenAI().beta.threads.runs.create(
+#             thread_id=thread.id,
+#             assistant_id=assistant.id,
+#             instructions="Please address the user's travel inquiries.",
+#             timeout=240
+#         )
+#
+#         # Wait for completion
+#         while True:
+#             run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+#
+#             if run.status == "completed":
+#                 messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
+#
+#                 response = ""
+#                 for message in messages:
+#                     if message.role == "assistant" and message.content[0].type == "text":
+#                         response += message.content[0].text.value + "\n"
+#
+#                 # Delete assistant
+#                 openai.OpenAI().beta.assistants.delete(assistant.id)
+#
+#                 # print(response)
+#
+#                 categories = split_output(response)
+#
+#                 # return JSONResponse(content={"response": response}, status_code=200)
+#                 # return JSONResponse(content=response, status_code=200)
+#                 return JSONResponse(content=categories, status_code=200)
+#
+#             else:
+#                 time.sleep(5)
+#
+#     except Exception as e:
+#         return HTTPException(status_code=500, detail=str(e))
+
+
+def split_output(output):
     categories = {}
     current_day = None
 
@@ -356,6 +210,58 @@ def categorize_output(output):
             categories[current_category] = ' '.join(lines[1:])
 
     return categories
+
+
+@app.post("/categorize-output")
+async def categorize_output(request: Request):
+    try:
+        data = await request.json()
+        output = data['categorize']
+
+        categories = {}
+        current_day = None
+
+        # Split the output by section headings
+        sections = output.strip().split("### ")
+
+        for section in sections:
+            lines = section.strip().split("\n")
+            heading = lines[0]
+
+            if heading.startswith("Overview of Greece"):
+                current_category = "Overview"
+                categories[current_category] = {"Information": "\n".join(lines[1:])}
+            elif heading.startswith("Day"):
+                # Extract day and date
+                day_date = heading.split(" - ")[0]
+                current_category = f"Day {day_date}"
+                categories[current_category] = {"Activities": {"Morning": [], "Noon": [], "Evening": []}}
+
+                # Extract activities
+                current_time_of_day = None
+                for line in lines[1:]:
+                    if line.startswith("### Morning"):
+                        current_time_of_day = "Morning"
+                    elif line.startswith("### Noon"):
+                        current_time_of_day = "Noon"
+                    elif line.startswith("### Evening"):
+                        current_time_of_day = "Evening"
+                    else:
+                        categories[current_category]["Activities"][current_time_of_day].append(line)
+            elif heading.startswith("Essential Apps for the trip"):
+                current_category = "Essential Apps"
+                categories[current_category] = {"Apps": "\n".join(lines[1:])}
+            elif heading.startswith("Additional Recommendations"):
+                current_category = "Additional Recommendations"
+                categories[current_category] = {"Recommendations": "\n".join(lines[1:])}
+            elif heading.startswith("Summary"):
+                current_category = "Summary"
+                categories[current_category] = {"Summary": "\n".join(lines[1:])}
+
+        return JSONResponse(content=categories, status_code=200)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
 
 
 # New API endpoint to check if email and password are valid
@@ -606,7 +512,11 @@ def set_data_to_templates(template: str):
                                                  stars=str(user_details['stars']))
 
         general_template = get_general_templates()
-        formatted_trip_details += general_template
+        # formatted_trip_details += general_template
+        formatted_trip_details += "First, I would like to receive a brief overview of the vacation destination I have chosen. Tell me interesting facts about the place, what currency is used? What language do you speak? Current weather? What should you wear in the morning and evening? We would be happy if you would present me with a detailed plan for the ideal vacation according to the criteria I presented. The vacation must be well divided by days and dates and detailed in detail, where each day consists of a division of morning, noon, and evening. Regarding moving from place to place - flights/travel/train/bus/taxi, offer me recommended options, with details of prices and time frames. For each restaurant recommendation, immediately indicate the exact name, location, attach a contact phone number, and provide a website link if exist. If there is a recommended dish, state its name. Also, specify accommodation according to requirements, show recommended options, exact name, location, and contact phone number. Show me several options for places to stay each time - a central place to stay versus a nearby place to stay, etc. Note that the first and last day of the vacation also includes the flight itself. Each day must compile all the information - travel, accommodation, restaurants, and recommendations. For each recommendation or attraction, detail a little more - what are the reviews, what is the nature of the place, what is the experience there? If you have any other recommendations, write them down at the end. If you know essential apps that will help me on the trip - to order a taxi/restaurant, etc., mention it at the end. Important: Pay attention to includes plans for all dates. "
+        formatted_trip_details += " Write the result as a structured json object with fhe following keys:" \
+                                  " ${KEYS.concat(', ')}. keys and value should be with double quotes. " \
+                                  "multiple values will be represented as concatenated string with ,"
         return formatted_trip_details
 
     except Exception as e:
