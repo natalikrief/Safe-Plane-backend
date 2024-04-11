@@ -11,9 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 import re
 
-app = FastAPI(
-    response_limit=1024 * 1024 * 1024
-)
+app = FastAPI()
 origins = ["*"]
 
 app.add_middleware(
@@ -526,5 +524,10 @@ def set_data_to_templates(template: str):
 # Run the FastAPI application with Uvicorn
 if __name__ == "__main__":
     import uvicorn
+    from uvicorn_conf import keep_alive_timeout  # Import your custom settings from uvicorn_conf.py
+    # from testFastAPI import app  # Import your FastAPI app instance
+
+    # Run Uvicorn with custom settings
+    # uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), keep_alive_timeout=keep_alive_timeout)
 
     uvicorn.run(app, host="0.0.0.0")
