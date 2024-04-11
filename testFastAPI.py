@@ -9,8 +9,11 @@ from pymongo.mongo_client import MongoClient
 import openai
 from fastapi.middleware.cors import CORSMiddleware
 import json
+import re
 
-app = FastAPI()
+app = FastAPI(
+    response_limit=1024 * 1024 * 1024
+)
 origins = ["*"]
 
 app.add_middleware(
@@ -51,8 +54,8 @@ def get_db():
 
 
 # Endpoint to generate responses
-@app.post("/generate-response")
-async def generate_response(request: Request):
+@app.post("/generate-response1")
+async def generate_response1(request: Request):
     try:
         data = await request.json()
         user_message = get_user_details(data)
@@ -78,13 +81,13 @@ async def generate_response(request: Request):
                     },
                     "required": ["details"]
                 },
-                "transportation": {
-                    "type": "object",
-                    "properties": {
-                        "details": {"type": "string"}
-                    },
-                    "required": ["details"]
-                },
+                # "transportation": {
+                #     "type": "object",
+                #     "properties": {
+                #         "details": {"type": "string"}
+                #     },
+                #     "required": ["details"]
+                # },
                 "return": {
                     "type": "object",
                     "properties": {
@@ -93,39 +96,40 @@ async def generate_response(request: Request):
                     "required": ["details"]
                 },
                 "summary": {"type": "string"},
-                "Additional Recommendations And Useful Applications": {"type": "string"},
+                "Additional-Recommendations-And-Useful-Applications": {"type": "string"},
                 "day-details": {
                     "type": "array",
                     "items": {
                         "type": "object",
                         "properties": {
+                            "date": {"type": "string"},
                             "morning": {
                                 "type": "array",
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "restaurant": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "suggestionPlate": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                                         "website-link"]
-                                        },
-                                        "attractions": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "additionalData", "full-address", "website-link"]
-                                        }
+                                        # "restaurant": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "suggestionPlate": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
+                                        #                  "website-link"]
+                                        # },
+                                        # "attractions": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
+                                        # }
                                     }
                                 }
                             },
@@ -134,28 +138,28 @@ async def generate_response(request: Request):
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "restaurant": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "suggestionPlate": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                                         "website-link"]
-                                        },
-                                        "attractions": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "additionalData", "full-address", "website-link"]
-                                        }
+                                        # "restaurant": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "suggestionPlate": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
+                                        #                  "website-link"]
+                                        # },
+                                        # "attractions": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
+                                        # }
                                     }
                                 }
                             },
@@ -164,46 +168,47 @@ async def generate_response(request: Request):
                                 "items": {
                                     "type": "object",
                                     "properties": {
-                                        "restaurant": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "suggestionPlate": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "suggestionPlate", "additionalData", "full-address",
-                                                         "website-link"]
-                                        },
-                                        "attractions": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {"type": "string"},
-                                                "additionalData": {"type": "string"},
-                                                "full-address": {"type": "string"},
-                                                "website-link": {"type": "string"}
-                                            },
-                                            "required": ["name", "additionalData", "full-address", "website-link"]
-                                        }
+                                        # "restaurant": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "suggestionPlate": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "suggestionPlate", "additionalData", "full-address",
+                                        #                  "website-link"]
+                                        # },
+                                        # "attractions": {
+                                        #     "type": "object",
+                                        #     "properties": {
+                                        #         "name": {"type": "string"},
+                                        #         "additionalData": {"type": "string"},
+                                        #         "full-address": {"type": "string"},
+                                        #         "website-link": {"type": "string"}
+                                        #     },
+                                        #     "required": ["name", "additionalData", "full-address", "website-link"]
+                                        # }
                                     }
                                 }
                             },
-                            "accommodation-preferences": {"type": "string"},
+                            "accommodation-place": {"type": "string"},
                             "transportation-and-prices": {"type": "string"},
-                            "date": {"type": "string"}
                         },
-                        "required": ["morning", "noon", "evening", "accommodation-preferences",
-                                     "transportation-and-prices", "date"]
+                        "required": ["date", "morning", "noon", "evening", "accommodation-place",
+                                     "transportation-and-prices"]
                     }
                 }
             },
-            "required": ["tripIntroduction", "arrival", "transportation", "return", "summary",
-                         "Additional Recommendations And Useful Applications", "day-details"]
+            # "required": ["tripIntroduction", "arrival", "transportation", "return", "summary",
+            #              "Additional Recommendations And Useful Applications", "day-details"],
+            "required": ["tripIntroduction", "arrival", "return", "summary",
+                         "Additional Recommendations And Useful Applications", "day-details"],
         }
 
         gpt_response = openai.chat.completions.create(
-            model="gpt-4-turbo",  # Specify the GPT model
+            model="gpt-4-0125-preview",  # Specify the GPT model
             messages=[
                 {
                     "role": "user",
@@ -216,7 +221,8 @@ async def generate_response(request: Request):
                     "parameters": json_template  # Pass your JSON template here
                 }
             ],
-            function_call={"name": "create_trip_plan"}  # Specify the function to call
+            function_call={"name": "create_trip_plan"},  # Specify the function to call
+            timeout=240
         )
 
         # Extract the function call
@@ -232,53 +238,122 @@ async def generate_response(request: Request):
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
 
-    #     # Create an OpenAI assistant
-    #     assistant = openai.OpenAI().beta.assistants.create(
-    #         name="Travel Planner",
-    #         instructions="You help planning travel itineraries, skilled in choosing places to stay,"
-    #                      " restaurants, tourist sites, and more.",
-    #         model="gpt-4-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
-    #     )
-    #
-    #     # Create a thread for communication
-    #     thread = openai.OpenAI().beta.threads.create()
-    #
-    #     # Send user message
-    #     message = openai.OpenAI().beta.threads.messages.create(
-    #         thread_id=thread.id,
-    #         role="user",
-    #         content=user_message,
-    #     )
-    #
-    #     # Start the assistant
-    #     run = openai.OpenAI().beta.threads.runs.create(
-    #         thread_id=thread.id,
-    #         assistant_id=assistant.id,
-    #         instructions="Please address the user's travel inquiries.",
-    #     )
-    #
-    #     # Wait for completion
-    #     while True:
-    #         run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-    #
-    #         if run.status == "completed":
-    #             messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
-    #
-    #             response = ""
-    #             for message in messages:
-    #                 if message.role == "assistant" and message.content[0].type == "text":
-    #                     response += message.content[0].text.value + "\n"
-    #
-    #             # Delete assistant
-    #             openai.OpenAI().beta.assistants.delete(assistant.id)
-    #
-    #             return JSONResponse(content={"response": response}, status_code=200)
-    #
-    #         else:
-    #             time.sleep(5)
-    #
-    # except Exception as e:
-    #     return HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-response")
+async def generate_response(request: Request):
+    try:
+        data = await request.json()
+        user_message = get_user_details(data)
+
+        # Create an OpenAI assistant
+        assistant = openai.OpenAI().beta.assistants.create(
+            name="Travel Planner",
+            instructions="You help planning travel itineraries, skilled in choosing places to stay,"
+                         " restaurants, tourist sites, and more.",
+            model="gpt-4-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview
+        )
+
+        # Create a thread for communication
+        thread = openai.OpenAI().beta.threads.create()
+
+        # Send user message
+        message = openai.OpenAI().beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=user_message,
+        )
+
+        # Start the assistant
+        run = openai.OpenAI().beta.threads.runs.create(
+            thread_id=thread.id,
+            assistant_id=assistant.id,
+            instructions="Please address the user's travel inquiries.",
+            timeout=240
+        )
+
+        # Wait for completion
+        while True:
+            run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
+
+            if run.status == "completed":
+                messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
+
+                response = ""
+                for message in messages:
+                    if message.role == "assistant" and message.content[0].type == "text":
+                        response += message.content[0].text.value + "\n"
+
+                # Delete assistant
+                openai.OpenAI().beta.assistants.delete(assistant.id)
+
+                # print(response)
+
+                categories = categorize_output(response)
+
+                # return JSONResponse(content={"response": response}, status_code=200)
+                return JSONResponse(content=categories, status_code=200)
+
+            else:
+                time.sleep(5)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
+
+
+def categorize_output(output):
+    categories = {}
+    current_day = None
+
+    # Split the output by section headings
+    sections = re.split(r"\n\n+", output.strip())
+
+    for section in sections:
+        lines = section.strip().split("\n")
+        heading = lines[0]
+
+        if heading.startswith("### Overview of"):
+            current_category = "Overview"
+            categories[current_category] = {}
+
+            # Extract overview text
+            categories[current_category]["Text"] = ' '.join(lines[1:])
+
+        elif heading.startswith("### Day"):
+            # Extract day and date
+            match = re.match(r"### Day (\d+): (\d+\.\d+) - (.+)", heading)
+            if match:
+                day, date, description = match.groups()
+                current_day = f"Day {day} ({date}) - {description}"
+                categories[current_day] = {"Activities": {"Morning": [], "Noon": [], "Evening": []}}
+
+                # Extract activities
+                current_time_of_day = None
+                for line in lines[1:]:
+                    if line.startswith("#### Morning:"):
+                        current_time_of_day = "Morning"
+                    elif line.startswith("#### Noon:"):
+                        current_time_of_day = "Noon"
+                    elif line.startswith("#### Evening:"):
+                        current_time_of_day = "Evening"
+                    else:
+                        categories[current_day]["Activities"][current_time_of_day].append(line)
+
+        elif heading.startswith("### Essential Apps for the trip"):
+            # Extract essential apps
+            current_category = "Essential Apps"
+            categories[current_category] = ' '.join(lines[1:])
+
+        elif heading.startswith("### Additional Recommendations"):
+            # Extract additional recommendations
+            current_category = "Additional Recommendations"
+            categories[current_category] = ' '.join(lines[1:])
+
+        elif heading.startswith("### Summary"):
+            # Extract summary
+            current_category = "Summary"
+            categories[current_category] = ' '.join(lines[1:])
+
+    return categories
 
 
 # New API endpoint to check if email and password are valid
@@ -530,17 +605,6 @@ def set_data_to_templates(template: str):
 
         general_template = get_general_templates()
         formatted_trip_details += general_template
-        # formatted_trip_details += " Please reconstruct your response as a json like the template below. " \
-        #                           "tripIntroduction: Overview of the destination country. " \
-        #                           "arrival: Details about arrival in destination country. " \
-        #                           "transportation: Transportation details from arrival to accommodation. " \
-        #                           "return: Departure details." \
-        #                           "summary: Brief summary of the trip." \
-        #                           "Additional Recommendations And Useful Applications: Recommendations for apps " \
-        #                           "and any additional information." \
-        #                           "day-details: Breakdown of each day's activities, including morning, noon, " \
-        #                           "and evening plans, accommodation preferences, transportation details, and date." \
-        #                           "(I know you cannot provide RT data): " + get_json_template()
         return formatted_trip_details
 
     except Exception as e:
