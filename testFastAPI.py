@@ -10,6 +10,8 @@ import openai
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import re
+from fastapi import BackgroundTasks
+from starlette.responses import Response
 
 app = FastAPI()
 origins = ["*"]
@@ -53,10 +55,20 @@ def get_db():
 
 # Endpoint to generate responses
 @app.post("/generate-response")
-async def generate_response(request: Request):
+async def generate_response(request: Request, background_tasks: BackgroundTasks):
     try:
         data = await request.json()
         user_message = get_user_details(data)
+
+        # Function to send keep-alive messages
+        def send_keep_alive(response: Response):
+            while True:
+                # Send a small response every 10 seconds to keep the connection alive
+                response.body = b''
+                time.sleep(10)
+
+        # Start sending keep-alive messages in the background
+        background_tasks.add_task(send_keep_alive, Response())
 
         gpt_response = openai.chat.completions.create(
             model="gpt-4-0125-preview",  # Specify the GPT model
