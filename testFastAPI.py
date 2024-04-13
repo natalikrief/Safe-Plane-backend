@@ -89,7 +89,7 @@ async def generate_response(request: Request):
         general_template = get_general_template()
 
         gpt_response = openai.chat.completions.create(
-            model="gpt-4-0125-preview",  # Specify the GPT model
+            model="gpt-4-turbo",  # Specify the GPT model
             messages=[
                 {
                     "role": "user",
@@ -119,7 +119,7 @@ async def improve_response(request: Request):
         # user_message = str(data) + "Please improve your answer according to: " + general_template + get_instructions()
 
         gpt_response = openai.chat.completions.create(
-            model="gpt-4-0125-preview",  # Specify the GPT model
+            model="gpt-4-turbo",  # Specify the GPT model gpt-4-0125-preview
             messages=[
                 {
                     "role": "user",
