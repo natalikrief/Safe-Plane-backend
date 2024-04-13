@@ -1,5 +1,4 @@
 import os
-import time
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, Depends
@@ -67,13 +66,14 @@ def get_general_template():
 
 def get_instructions():
     try:
+        # Fetch the instructions from the database
+        # instructions_doc = templates_collection.find_one({}, {"_id": 0, "instructions": 1})
 
-        # Fetch the general-template from the database
-        temp = templates_collection.find_one({}, {"_id": 0, "instructions": 1})
-
-        # If template is found, return template data as JSON
-        if temp:
-            return temp['instructions']
+        instructions_doc = templates_collection.find_one({"instructions": {"$exists": True}},
+                                                         {"_id": 0, "instructions": 1})
+        # If instructions are found, return them
+        if instructions_doc and 'instructions' in instructions_doc:
+            return instructions_doc['instructions']
         else:
             raise HTTPException(status_code=404, detail="Instructions not found")
     except Exception as e:
@@ -103,7 +103,8 @@ async def generate_response(request: Request):
 
         trip_plan = gpt_response.choices[0].message.content.strip()
         # return trip_plan
-        return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template}, status_code=200)
+        return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template},
+                            status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
@@ -113,10 +114,7 @@ async def generate_response(request: Request):
 async def improve_response(request: Request):
     try:
         data = await request.json()
-        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + " Write the result as a structured json object with fhe following keys:" \
-                                  " ${KEYS.concat(', ')}. keys and value should be with double quotes. " \
-                                  "multiple values will be represented as concatenated string with ,"
-        # user_message = str(data) + "Please improve your answer according to: " + general_template + get_instructions()
+        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
 
         gpt_response = openai.chat.completions.create(
             model="gpt-4-turbo",  # Specify the GPT model gpt-4-0125-preview
@@ -428,14 +426,6 @@ def convert_to_json_serializable(user):
     return user
 
 
-@app.get("/test-api")
-async def test_api():
-    try:
-        return 'hello'
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.get("/test-connection")
 async def test_connection():
     try:
@@ -476,38 +466,6 @@ def get_user_details(data):
 
         else:
             raise HTTPException(status_code=404, detail="User Details not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# def get_general_templates():
-#     try:
-#         # Fetch the general-template from the database
-#         temp = templates_collection.find_one({}, {"_id": 0, "general-template": 1})
-#
-#         # If template is found, return template data as JSON
-#         if temp:
-#             return temp['general-template']
-#         else:
-#             raise HTTPException(status_code=404, detail="General template not found")
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-def get_json_template():
-    try:
-        # Fetch the general-template from the database
-        # temp = templates_collection.find_one({}, {"_id": 0, "json-template": 1})
-        temp = templates_collection.find({})
-        for json_temp in temp:
-            print(json)
-        json_string = json.dumps(json_temp['json-template'])
-
-        # If template is found, return template data as JSON
-        if json_string:
-            return json_string  # temp['json-template']
-        else:
-            raise HTTPException(status_code=404, detail="Json template not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -569,14 +527,7 @@ def set_data_to_templates(template: str):
                                                  budget2=str(user_details['budget'][1]),
                                                  stars=str(user_details['stars']))
 
-        # general_template = get_general_templates()
-        # formatted_trip_details += general_template
-        formatted_trip_details += "Please prepare a vacation plan." + " Write the result as a structured json " \
-                                                                      "object with fhe following keys: " \
-                                                                      "${KEYS.concat(', ')}. keys and value should " \
-                                                                      "be with double quotes. multiple values will " \
-                                                                      "be represented as concatenated string with ,"
-        # formatted_trip_details += "Please prepare a vacation plan." + get_instructions()
+        formatted_trip_details += "Please prepare a vacation plan." + get_instructions()
         return formatted_trip_details
 
     except Exception as e:
@@ -588,4 +539,3 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0")
-
