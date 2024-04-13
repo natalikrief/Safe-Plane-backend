@@ -10,8 +10,6 @@ import openai
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import re
-from fastapi import BackgroundTasks
-from starlette.responses import Response
 
 app = FastAPI()
 origins = ["*"]
@@ -53,22 +51,72 @@ def get_db():
         pass
 
 
+def get_general_template():
+    try:
+        # Fetch the general-template from the database
+        temp = templates_collection.find_one({}, {"_id": 0, "general-template": 1})
+
+        # If template is found, return template data as JSON
+        if temp:
+            return temp['general-template']
+        else:
+            raise HTTPException(status_code=404, detail="General template not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def get_instructions():
+    try:
+
+        # Fetch the general-template from the database
+        temp = templates_collection.find_one({}, {"_id": 0, "instructions": 1})
+
+        # If template is found, return template data as JSON
+        if temp:
+            return temp['instructions']
+        else:
+            raise HTTPException(status_code=404, detail="Instructions not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Endpoint to generate responses
 @app.post("/generate-response")
-async def generate_response(request: Request, background_tasks: BackgroundTasks):
+async def generate_response(request: Request):
     try:
         data = await request.json()
         user_message = get_user_details(data)
+        general_template = get_general_template()
 
-        # Function to send keep-alive messages
-        def send_keep_alive(response: Response):
-            while True:
-                # Send a small response every 10 seconds to keep the connection alive
-                response.body = b''
-                time.sleep(10)
+        gpt_response = openai.chat.completions.create(
+            model="gpt-4-0125-preview",  # Specify the GPT model
+            messages=[
+                {
+                    "role": "user",
+                    "content": user_message
+                }
+            ],
+            temperature=1,
+            max_tokens=2500,
+            response_format={"type": "json_object"},
+        )
 
-        # Start sending keep-alive messages in the background
-        background_tasks.add_task(send_keep_alive, Response())
+        trip_plan = gpt_response.choices[0].message.content.strip()
+        # return trip_plan
+        return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template}, status_code=200)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/improve-response")
+async def improve_response(request: Request):
+    try:
+        data = await request.json()
+        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + " Write the result as a structured json object with fhe following keys:" \
+                                  " ${KEYS.concat(', ')}. keys and value should be with double quotes. " \
+                                  "multiple values will be represented as concatenated string with ,"
+        # user_message = str(data) + "Please improve your answer according to: " + general_template + get_instructions()
 
         gpt_response = openai.chat.completions.create(
             model="gpt-4-0125-preview",  # Specify the GPT model
@@ -432,18 +480,18 @@ def get_user_details(data):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def get_general_templates():
-    try:
-        # Fetch the general-template from the database
-        temp = templates_collection.find_one({}, {"_id": 0, "general-template": 1})
-
-        # If template is found, return template data as JSON
-        if temp:
-            return temp['general-template']
-        else:
-            raise HTTPException(status_code=404, detail="General template not found")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# def get_general_templates():
+#     try:
+#         # Fetch the general-template from the database
+#         temp = templates_collection.find_one({}, {"_id": 0, "general-template": 1})
+#
+#         # If template is found, return template data as JSON
+#         if temp:
+#             return temp['general-template']
+#         else:
+#             raise HTTPException(status_code=404, detail="General template not found")
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 def get_json_template():
@@ -521,12 +569,14 @@ def set_data_to_templates(template: str):
                                                  budget2=str(user_details['budget'][1]),
                                                  stars=str(user_details['stars']))
 
-        general_template = get_general_templates()
+        # general_template = get_general_templates()
         # formatted_trip_details += general_template
-        formatted_trip_details += "First, I would like to receive a brief overview of the vacation destination I have chosen. Tell me interesting facts about the place, what currency is used? What language do you speak? Current weather? What should you wear in the morning and evening? We would be happy if you would present me with a detailed plan for the ideal vacation according to the criteria I presented. The vacation must be well divided by days and dates and detailed in detail, where each day consists of a division of morning, noon, and evening. Regarding moving from place to place - flights/travel/train/bus/taxi, offer me recommended options, with details of prices and time frames. For each restaurant recommendation, immediately indicate the exact name, location, attach a contact phone number, and provide a website link if exist. If there is a recommended dish, state its name. Also, specify accommodation according to requirements, show recommended options, exact name, location, and contact phone number. Show me several options for places to stay each time - a central place to stay versus a nearby place to stay, etc. Note that the first and last day of the vacation also includes the flight itself. Each day must compile all the information - travel, accommodation, restaurants, and recommendations. For each recommendation or attraction, detail a little more - what are the reviews, what is the nature of the place, what is the experience there? If you have any other recommendations, write them down at the end. If you know essential apps that will help me on the trip - to order a taxi/restaurant, etc., mention it at the end. Important: Pay attention to includes plans for all dates. "
-        formatted_trip_details += " Write the result as a structured json object with fhe following keys:" \
-                                  " ${KEYS.concat(', ')}. keys and value should be with double quotes. " \
-                                  "multiple values will be represented as concatenated string with ,"
+        formatted_trip_details += "Please prepare a vacation plan." + " Write the result as a structured json " \
+                                                                      "object with fhe following keys: " \
+                                                                      "${KEYS.concat(', ')}. keys and value should " \
+                                                                      "be with double quotes. multiple values will " \
+                                                                      "be represented as concatenated string with ,"
+        # formatted_trip_details += "Please prepare a vacation plan." + get_instructions()
         return formatted_trip_details
 
     except Exception as e:
@@ -536,13 +586,6 @@ def set_data_to_templates(template: str):
 # Run the FastAPI application with Uvicorn
 if __name__ == "__main__":
     import uvicorn
-    from uvicorn_conf import keep_alive_timeout  # Import your custom settings from uvicorn_conf.py
-    # from testFastAPI import app  # Import your FastAPI app instance
 
-    # Run Uvicorn with custom settings
-    # uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), keep_alive_timeout=keep_alive_timeout)
+    uvicorn.run(app, host="0.0.0.0")
 
-    # uvicorn.run(app, host="0.0.0.0")
-
-    # Run Uvicorn with Gunicorn and custom settings
-    uvicorn.run(app, host="0.0.0.0", timeout_keep_alive=10000)
