@@ -542,4 +542,14 @@ if __name__ == "__main__":
     # Run Uvicorn with custom settings
     # uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), keep_alive_timeout=keep_alive_timeout)
 
-    uvicorn.run(app, host="0.0.0.0")
+    # uvicorn.run(app, host="0.0.0.0")
+
+    import uvicorn
+    from uvicorn_conf import keep_alive_timeout  # Import your custom settings from uvicorn_conf.py
+    import os
+
+    # Set Gunicorn timeout to 60 seconds
+    os.environ["GUNICORN_CMD_ARGS"] = "--timeout 240"
+
+    # Run Uvicorn with Gunicorn and custom settings
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
