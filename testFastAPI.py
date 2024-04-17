@@ -9,6 +9,7 @@ import openai
 from fastapi.middleware.cors import CORSMiddleware
 import json
 import re
+import asyncio
 
 app = FastAPI()
 origins = ["*"]
@@ -110,14 +111,37 @@ async def generate_response(request: Request):
         return HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/improve-response")
-async def improve_response(request: Request):
-    try:
-        data = await request.json()
-        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
+# @app.post("/improve-response")
+# async def improve_response(request: Request):
+#     try:
+#         data = await request.json()
+#         user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
+#
+#         gpt_response = openai.chat.completions.create(
+#             model="gpt-4-turbo",  # Specify the GPT model gpt-4-0125-preview
+#             messages=[
+#                 {
+#                     "role": "user",
+#                     "content": user_message
+#                 }
+#             ],
+#             temperature=1,
+#             max_tokens=2500,
+#             response_format={"type": "json_object"},
+#         )
+#
+#         trip_plan = gpt_response.choices[0].message.content.strip()
+#         # return trip_plan
+#         return JSONResponse(content=json.loads(trip_plan), status_code=200)
+#
+#     except Exception as e:
+#         return HTTPException(status_code=500, detail=str(e))
 
+
+async def assist_improve_response(user_message):
+    try:
         gpt_response = openai.chat.completions.create(
-            model="gpt-4-turbo",  # Specify the GPT model gpt-4-0125-preview
+            model="gpt-4-turbo",  # Specify the GPT model
             messages=[
                 {
                     "role": "user",
@@ -130,8 +154,24 @@ async def improve_response(request: Request):
         )
 
         trip_plan = gpt_response.choices[0].message.content.strip()
-        # return trip_plan
-        return JSONResponse(content=json.loads(trip_plan), status_code=200)
+        return json.loads(trip_plan)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/improve-response")
+async def improve_response(request: Request):
+    try:
+        data = await request.json()
+        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
+
+        loop = asyncio.get_event_loop()
+        task = loop.create_task(assist_improve_response(user_message))
+
+        while not task.done():
+            await asyncio.sleep(10)
+
+        return JSONResponse(content=await task, status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
@@ -532,6 +572,31 @@ def set_data_to_templates(template: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/get-locations-array")
+async def get_locations_array(request: Request):
+    try:
+        data = await request.json()
+
+        # Extract restaurant locations
+        restaurant_locations = [data["restaurant_recommendation"][city][restaurant]["address"] for city in
+                                data["restaurant_recommendation"] for restaurant in
+                                data["restaurant_recommendation"][city]]
+
+        accommodation_locations = [data["accommodation"][city][hotel]["address"] for city in data["accommodation"] for
+                                   hotel in data["accommodation"][city]]
+
+        # restaurant_locations = [restaurant["address"] for restaurant in data["restaurant_recommendation"]]
+
+        # Extract accommodation locations
+        # accommodation_locations = [accommodation["address"] for accommodation in data["accommodation"]]
+
+        return JSONResponse(content={"restaurant_locations": restaurant_locations,
+                                     "accommodation_locations": accommodation_locations}, status_code=200)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
 
 
 # Run the FastAPI application with Uvicorn
