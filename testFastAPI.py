@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks
 from fastapi.responses import JSONResponse
 from passlib.hash import bcrypt
 from pymongo.mongo_client import MongoClient
@@ -34,6 +34,8 @@ users_collection = db["users"]
 templates_collection = db["templates"]
 
 user_details = {}
+safe_plan = None
+response_semaphore = asyncio.Semaphore(1)
 
 
 # Define the User model
@@ -140,6 +142,7 @@ async def generate_response(request: Request):
 
 async def assist_improve_response(user_message):
     try:
+        global safe_plan
         gpt_response = openai.chat.completions.create(
             model="gpt-4-turbo",  # Specify the GPT model
             messages=[
@@ -154,27 +157,39 @@ async def assist_improve_response(user_message):
         )
 
         trip_plan = gpt_response.choices[0].message.content.strip()
-        return json.loads(trip_plan)
+        # Acquire the semaphore to update safe_plan
+        async with response_semaphore:
+            safe_plan = trip_plan
+
+        # return json.loads(trip_plan)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/improve-response")
-async def improve_response(request: Request):
+async def improve_response(request: Request, background_tasks: BackgroundTasks):
     try:
+        global safe_plan
         data = await request.json()
         user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
 
-        loop = asyncio.get_event_loop()
-        task = loop.create_task(assist_improve_response(user_message))
+        background_tasks.add_task(assist_improve_response, user_message)
 
-        while not task.done():
-            await asyncio.sleep(10)
-
-        return JSONResponse(content=await task, status_code=200)
+        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
+        return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/get-improved-response")
+async def get_improved_response():
+    global safe_plan
+    if safe_plan:
+        return JSONResponse(content=json.loads(safe_plan), status_code=200)
+    else:
+        return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
+                            status_code=404)
 
 
 @app.post("/get-query")
