@@ -32,6 +32,7 @@ mongo_client = MongoClient(MONGODB_URL)
 db = mongo_client["safeplan"]
 users_collection = db["users"]
 templates_collection = db["templates"]
+history_collection = db['history']
 
 user_details = {}
 safe_plan = None
@@ -83,63 +84,6 @@ def get_instructions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Endpoint to generate responses
-@app.post("/generate-response")
-async def generate_response(request: Request):
-    try:
-        data = await request.json()
-        user_message = get_user_details(data)
-        general_template = get_general_template()
-
-        gpt_response = openai.chat.completions.create(
-            model="gpt-4-turbo",  # Specify the GPT model
-            messages=[
-                {
-                    "role": "user",
-                    "content": user_message
-                }
-            ],
-            temperature=1,
-            max_tokens=2500,
-            response_format={"type": "json_object"},
-        )
-
-        trip_plan = gpt_response.choices[0].message.content.strip()
-        # return trip_plan
-        return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template},
-                            status_code=200)
-
-    except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/improve-response")
-# async def improve_response(request: Request):
-#     try:
-#         data = await request.json()
-#         user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
-#
-#         gpt_response = openai.chat.completions.create(
-#             model="gpt-4-turbo",  # Specify the GPT model gpt-4-0125-preview
-#             messages=[
-#                 {
-#                     "role": "user",
-#                     "content": user_message
-#                 }
-#             ],
-#             temperature=1,
-#             max_tokens=2500,
-#             response_format={"type": "json_object"},
-#         )
-#
-#         trip_plan = gpt_response.choices[0].message.content.strip()
-#         # return trip_plan
-#         return JSONResponse(content=json.loads(trip_plan), status_code=200)
-#
-#     except Exception as e:
-#         return HTTPException(status_code=500, detail=str(e))
-
-
 async def assist_improve_response(user_message):
     try:
         global safe_plan
@@ -164,6 +108,52 @@ async def assist_improve_response(user_message):
         # return json.loads(trip_plan)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Endpoint to generate responses
+@app.post("/generate-response")
+async def generate_response(request: Request, background_tasks: BackgroundTasks):
+    try:
+        global safe_plan
+        data = await request.json()
+        user_data = get_user_details(data)
+        general_template = get_general_template()
+        # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
+        user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
+
+        background_tasks.add_task(assist_improve_response, user_message)
+
+        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
+        return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
+
+    # try:
+    #     data = await request.json()
+    #     user_message = get_user_details(data)
+    #     general_template = get_general_template()
+    #
+    #     gpt_response = openai.chat.completions.create(
+    #         model="gpt-4-turbo",  # Specify the GPT model
+    #         messages=[
+    #             {
+    #                 "role": "user",
+    #                 "content": user_message
+    #             }
+    #         ],
+    #         temperature=1,
+    #         max_tokens=2500,
+    #         response_format={"type": "json_object"},
+    #     )
+    #
+    #     trip_plan = gpt_response.choices[0].message.content.strip()
+    #     # return trip_plan
+    #     return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template},
+    #                         status_code=200)
+    #
+    # except Exception as e:
+    #     return HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/improve-response")
@@ -428,6 +418,7 @@ async def add_user(request: Request, db=Depends(get_db)):
 
         # Insert the new user into the database
         db.users.insert_one(new_user)
+        db.history.insert_one({"email": email})
 
         return JSONResponse(content={"message": "User added successfully"}, status_code=201)
 
@@ -485,6 +476,60 @@ def convert_to_json_serializable(user):
 async def test_connection():
     try:
         return MONGO_DB
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/update-user-history/{email}")
+async def update_user_history(email: str, request: Request):
+    try:
+        # Parse request JSON data
+        data = await request.json()
+        #
+        # # Update user information in the database
+        # result = db.history.update_one({"email": email}, {"$set": data})
+        #
+        # if result.modified_count == 1:
+        #     return {"message": "User history updated successfully"}
+        # else:
+        #     raise HTTPException(status_code=404, detail="User history not found")
+
+        user = db.history.find_one({"email": email})
+
+        if user:
+            # If user exists, update their history with an incrementing index
+            history_item = {
+                "index": user.get("history_count", 0) + 1,  # Increment index
+                "data": data
+            }
+
+            # Update user information in the database
+            result = db.history.update_one(
+                {"email": email},
+                {"$push": {"history": history_item}, "$inc": {"history_count": 1}}
+            )
+
+            if result.modified_count == 1:
+                return {"message": "User history updated successfully"}
+            else:
+                raise HTTPException(status_code=500, detail="Failed to update user history")
+        else:
+            # If user not found, create a new entry
+            history_item = {
+                "index": 1,  # Start index from 1
+                "data": data
+            }
+
+            db.history.insert_one({
+                "email": email,
+                "history": [history_item],
+                "history_count": 1
+            })
+
+            return {"message": "User history created successfully"}
+
+    except HTTPException as e:
+        raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -594,24 +639,69 @@ async def get_locations_array(request: Request):
     try:
         data = await request.json()
 
-        # Extract restaurant locations
-        restaurant_locations = [data["restaurant_recommendation"][city][restaurant]["address"] for city in
-                                data["restaurant_recommendation"] for restaurant in
-                                data["restaurant_recommendation"][city]]
+        # Extract restaurant locations from dictionary format
+        restaurant_locations_dict_format = []
+        for city, restaurants in data["restaurant_recommendation"].items():
+            if "address" in restaurants:
+                restaurant_locations_dict_format.append(restaurants["address"])
 
-        accommodation_locations = [data["accommodation"][city][hotel]["address"] for city in data["accommodation"] for
-                                   hotel in data["accommodation"][city]]
+        # Extract restaurant locations from string format
+        restaurant_locations_str_format = []
+        for city, restaurants in data["restaurant_recommendation"].items():
+            if isinstance(restaurants, dict):
+                for restaurant_details in restaurants.values():
+                    if "Location" in restaurant_details:
+                        location_info = restaurant_details.split(";")
+                        for info in location_info:
+                            if info.strip().startswith("Location:"):
+                                location = info.strip().split(":")[1].strip()
+                                restaurant_locations_str_format.append(location)
 
-        # restaurant_locations = [restaurant["address"] for restaurant in data["restaurant_recommendation"]]
+        # Combine both restaurant location lists
+        restaurant_locations = restaurant_locations_dict_format + restaurant_locations_str_format
 
         # Extract accommodation locations
-        # accommodation_locations = [accommodation["address"] for accommodation in data["accommodation"]]
+        accommodation_locations = []
+        for city, hotels in data["accommodation"].items():
+            for hotel_info in hotels.values():
+                if "Location" in hotel_info:
+                    accommodation_locations.append(hotel_info["Location"])
 
         return JSONResponse(content={"restaurant_locations": restaurant_locations,
                                      "accommodation_locations": accommodation_locations}, status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
+
+
+@app.put("/update-general-template")
+async def update_general_template(request: Request):
+    try:
+        # Parse request JSON data
+        data = await request.json()
+
+        # Extract the new general-template value from the request data
+        new_template = data.get("general-template")
+
+        # Check if the new_template is provided
+        if new_template is None:
+            raise HTTPException(status_code=400, detail="New general-template value is missing")
+
+        # Remove general-template from data to avoid updating it separately
+        data.pop("general-template", None)
+
+        # Update general-template in the database along with other information
+        result = db.templates.update_one({}, {"$set": {"general-template": new_template, **data}})
+
+        if result.modified_count == 1:
+            return {"message": "General template updated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="No general-template field found in the database")
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Run the FastAPI application with Uvicorn
