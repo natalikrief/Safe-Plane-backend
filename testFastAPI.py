@@ -115,6 +115,7 @@ async def assist_improve_response(user_message):
 async def generate_response(request: Request, background_tasks: BackgroundTasks):
     try:
         global safe_plan
+        safe_plan = None
         data = await request.json()
         user_data = get_user_details(data)
         general_template = get_general_template()
