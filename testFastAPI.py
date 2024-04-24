@@ -103,7 +103,7 @@ async def assist_improve_response(user_message):
         trip_plan = gpt_response.choices[0].message.content.strip()
         # Acquire the semaphore to update safe_plan
         async with response_semaphore:
-            safe_plan = trip_plan
+            safe_plan = json.loads(trip_plan)
 
         # return json.loads(trip_plan)
     except Exception as e:
@@ -177,7 +177,7 @@ async def improve_response(request: Request, background_tasks: BackgroundTasks):
 async def get_improved_response():
     global safe_plan
     if safe_plan:
-        return JSONResponse(content=json.loads(safe_plan), status_code=200)
+        return JSONResponse(content=safe_plan, status_code=200)
     else:
         return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
                             status_code=404)
