@@ -33,6 +33,7 @@ db = mongo_client["safeplan"]
 users_collection = db["users"]
 templates_collection = db["templates"]
 history_collection = db['history']
+additionalData_collection = db['additionalData']
 
 user_details = {}
 safe_plan = None
@@ -179,190 +180,7 @@ async def get_improved_response():
         return JSONResponse(content=safe_plan, status_code=200)
     else:
         return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
-                            status_code=404)
-
-
-@app.post("/get-query")
-async def get_query(request: Request):
-    try:
-        data = await request.json()
-        user_message = get_user_details(data)
-
-        return JSONResponse(content=user_message, status_code=200)
-
-    except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/generate-response")
-# async def generate_response(request: Request):
-#     try:
-#         data = await request.json()
-#         # user_message = data['query']
-#         user_message = get_user_details(data)
-#
-#         # Create an OpenAI assistant
-#         assistant = openai.OpenAI().beta.assistants.create(
-#             name="Travel Planner",
-#             instructions="You help planning travel itineraries, skilled in choosing places to stay,"
-#                          " restaurants, tourist sites, and more.",
-#             model="gpt-4-turbo",  # gpt-4-1106-preview gpt-3.5-turbo gpt-4-0125-preview gpt-4-turbo
-#         )
-#
-#         # Create a thread for communication
-#         thread = openai.OpenAI().beta.threads.create()
-#
-#         # Send user message
-#         message = openai.OpenAI().beta.threads.messages.create(
-#             thread_id=thread.id,
-#             role="user",
-#             content=user_message,
-#         )
-#
-#         # Start the assistant
-#         run = openai.OpenAI().beta.threads.runs.create(
-#             thread_id=thread.id,
-#             assistant_id=assistant.id,
-#             instructions="Please address the user's travel inquiries.",
-#             timeout=240
-#         )
-#
-#         # Wait for completion
-#         while True:
-#             run = openai.OpenAI().beta.threads.runs.retrieve(thread_id=thread.id, run_id=run.id)
-#
-#             if run.status == "completed":
-#                 messages = openai.OpenAI().beta.threads.messages.list(thread_id=thread.id)
-#
-#                 response = ""
-#                 for message in messages:
-#                     if message.role == "assistant" and message.content[0].type == "text":
-#                         response += message.content[0].text.value + "\n"
-#
-#                 # Delete assistant
-#                 openai.OpenAI().beta.assistants.delete(assistant.id)
-#
-#                 # print(response)
-#
-#                 categories = split_output(response)
-#
-#                 # return JSONResponse(content={"response": response}, status_code=200)
-#                 # return JSONResponse(content=response, status_code=200)
-#                 return JSONResponse(content=categories, status_code=200)
-#
-#             else:
-#                 time.sleep(5)
-#
-#     except Exception as e:
-#         return HTTPException(status_code=500, detail=str(e))
-
-
-def split_output(output):
-    categories = {}
-    current_day = None
-
-    # Split the output by section headings
-    sections = re.split(r"\n\n+", output.strip())
-
-    for section in sections:
-        lines = section.strip().split("\n")
-        heading = lines[0]
-
-        if heading.startswith("### Overview of"):
-            current_category = "Overview"
-            categories[current_category] = {}
-
-            # Extract overview text
-            categories[current_category]["Text"] = ' '.join(lines[1:])
-
-        elif heading.startswith("### Day"):
-            # Extract day and date
-            match = re.match(r"### Day (\d+): (\d+\.\d+) - (.+)", heading)
-            if match:
-                day, date, description = match.groups()
-                current_day = f"Day {day} ({date}) - {description}"
-                categories[current_day] = {"Activities": {"Morning": [], "Noon": [], "Evening": []}}
-
-                # Extract activities
-                current_time_of_day = None
-                for line in lines[1:]:
-                    if line.startswith("#### Morning:"):
-                        current_time_of_day = "Morning"
-                    elif line.startswith("#### Noon:"):
-                        current_time_of_day = "Noon"
-                    elif line.startswith("#### Evening:"):
-                        current_time_of_day = "Evening"
-                    else:
-                        categories[current_day]["Activities"][current_time_of_day].append(line)
-
-        elif heading.startswith("### Essential Apps for the trip"):
-            # Extract essential apps
-            current_category = "Essential Apps"
-            categories[current_category] = ' '.join(lines[1:])
-
-        elif heading.startswith("### Additional Recommendations"):
-            # Extract additional recommendations
-            current_category = "Additional Recommendations"
-            categories[current_category] = ' '.join(lines[1:])
-
-        elif heading.startswith("### Summary"):
-            # Extract summary
-            current_category = "Summary"
-            categories[current_category] = ' '.join(lines[1:])
-
-    return categories
-
-
-@app.post("/categorize-output")
-async def categorize_output(request: Request):
-    try:
-        data = await request.json()
-        output = data['categorize']
-
-        categories = {}
-        current_day = None
-
-        # Split the output by section headings
-        sections = output.strip().split("### ")
-
-        for section in sections:
-            lines = section.strip().split("\n")
-            heading = lines[0]
-
-            if heading.startswith("Overview of Greece"):
-                current_category = "Overview"
-                categories[current_category] = {"Information": "\n".join(lines[1:])}
-            elif heading.startswith("Day"):
-                # Extract day and date
-                day_date = heading.split(" - ")[0]
-                current_category = f"Day {day_date}"
-                categories[current_category] = {"Activities": {"Morning": [], "Noon": [], "Evening": []}}
-
-                # Extract activities
-                current_time_of_day = None
-                for line in lines[1:]:
-                    if line.startswith("### Morning"):
-                        current_time_of_day = "Morning"
-                    elif line.startswith("### Noon"):
-                        current_time_of_day = "Noon"
-                    elif line.startswith("### Evening"):
-                        current_time_of_day = "Evening"
-                    else:
-                        categories[current_category]["Activities"][current_time_of_day].append(line)
-            elif heading.startswith("Essential Apps for the trip"):
-                current_category = "Essential Apps"
-                categories[current_category] = {"Apps": "\n".join(lines[1:])}
-            elif heading.startswith("Additional Recommendations"):
-                current_category = "Additional Recommendations"
-                categories[current_category] = {"Recommendations": "\n".join(lines[1:])}
-            elif heading.startswith("Summary"):
-                current_category = "Summary"
-                categories[current_category] = {"Summary": "\n".join(lines[1:])}
-
-        return JSONResponse(content=categories, status_code=200)
-
-    except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
+                            status_code=503)
 
 
 # New API endpoint to check if email and password are valid
@@ -574,12 +392,15 @@ def get_templates(vacation_type: str):
     try:
         templates = templates_collection.find({"vacationType": vacation_type})
 
+        additional_data_template = additionalData_collection.find_one({"vacationType": vacation_type})
+        # additional_data_template = additional_data_template_cursor.next()
+
         # If template is found, return template data as JSON
         if templates:
             for temp in templates:
                 temp["_id"] = str(temp["_id"])
                 temp = temp['template']
-                return set_data_to_templates(temp)
+                return set_data_to_templates(temp, additional_data_template, vacation_type)
 
         else:
             raise HTTPException(status_code=404, detail="Template not found")
@@ -587,7 +408,7 @@ def get_templates(vacation_type: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def set_data_to_templates(template: str):
+def set_data_to_templates(template: str, additional_data_template, vacation_type: str):
     try:
         if user_details['anotherCityChecked'] and not user_details['returnCountry'] == '':
             template += f"We would like to return from the country {user_details['returnCountry']}. " \
@@ -617,6 +438,15 @@ def set_data_to_templates(template: str):
         if not user_details['additionalData'] == []:
             for additional in user_details['additionalData']:
                 template += f"In addition, it is important - {additional}. "
+                # Define the additional data to push
+                # data = additional  # Modify this according to your additional data structure
+                # # Update the document by pushing additional data
+                # result = additionalData_collection.update_one(
+                #     {"_id": additional_data_template["_id"]},
+                #     {"$push": {"data": data}}
+                # )
+                # response = analyze_data(vacation_type)
+                # print(response)
 
         # Replace placeholders with variables
         formatted_trip_details = template.format(ages=user_details['ages'], date1=str(user_details['dates'][0]),
@@ -632,6 +462,62 @@ def set_data_to_templates(template: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def assist_analyze_data(user_message):
+    try:
+        # global safe_plan
+        gpt_response = openai.chat.completions.create(
+            model="gpt-4-turbo",  # Specify the GPT model
+            messages=[
+                {
+                    "role": "user",
+                    "content": user_message
+                }
+            ],
+            temperature=1,
+            max_tokens=2500,
+            # response_format={"type": "json_object"},
+        )
+
+        response = gpt_response.choices[0].message.content.strip()
+        # Acquire the semaphore to update safe_plan
+        # async with response_semaphore:
+        #     safe_plan = json.loads(trip_plan)
+        return response
+
+        # return json.loads(trip_plan)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def analyze_data(vacation_type: str):
+    try:
+        # global safe_plan
+        # data = await request.json()
+        # user_data = get_user_details(data)
+
+        # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
+
+        additional_data_template = additionalData_collection.find_one({"vacationType": vacation_type})
+        # additional_data_template = additional_data_template_cursor.next()
+
+        # If template is found, return template data as JSON
+        if additional_data_template:
+            response = assist_analyze_data("Please review the array: " + str(additional_data_template['data']) + " If you find something that returns many times, just send it back, without any other words.")
+            return response
+
+        else:
+            raise HTTPException(status_code=404, detail="Template not found")
+        # user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
+
+        # background_tasks.add_task(assist_analyze_data, user_message)
+
+        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
+        # return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
+
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/get-locations-array")
