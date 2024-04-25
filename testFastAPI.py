@@ -34,6 +34,7 @@ users_collection = db["users"]
 templates_collection = db["templates"]
 history_collection = db['history']
 additionalData_collection = db['additionalData']
+plans_collection = db['plans']
 
 user_details = {}
 safe_plan = None
@@ -85,7 +86,7 @@ def get_instructions():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def assist_improve_response(user_message):
+async def assist_improve_response(user_message, email):
     try:
         global safe_plan
         gpt_response = openai.chat.completions.create(
@@ -97,14 +98,19 @@ async def assist_improve_response(user_message):
                 }
             ],
             temperature=1,
-            max_tokens=2500,
+            max_tokens=4000,
             response_format={"type": "json_object"},
         )
 
         trip_plan = gpt_response.choices[0].message.content.strip()
         # Acquire the semaphore to update safe_plan
-        async with response_semaphore:
-            safe_plan = json.loads(trip_plan)
+        # async with response_semaphore:
+
+        db.plans.update_one(
+            {"email": email},
+            {"$set": {"plan": json.loads(trip_plan)}}
+        )
+            # safe_plan = json.loads(trip_plan)
 
         # return json.loads(trip_plan)
     except Exception as e:
@@ -117,12 +123,13 @@ async def generate_response(request: Request, background_tasks: BackgroundTasks)
     try:
         global safe_plan
         data = await request.json()
+        email = request.query_params.get("email")
         user_data = get_user_details(data)
         general_template = get_general_template()
         # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
         user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
 
-        background_tasks.add_task(assist_improve_response, user_message)
+        background_tasks.add_task(assist_improve_response, user_message, email)
 
         # return JSONResponse(content=json.loads(safe_plan), status_code=200)
         return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
@@ -173,14 +180,29 @@ async def improve_response(request: Request, background_tasks: BackgroundTasks):
         return HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/get-improved-response")
-async def get_improved_response():
-    global safe_plan
-    if safe_plan:
-        return JSONResponse(content=safe_plan, status_code=200)
-    else:
-        return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
-                            status_code=503)
+@app.get("/get-improved-response/{email}")
+async def get_improved_response(email: str):
+    # global safe_plan
+    # if safe_plan:
+    #     return JSONResponse(content=safe_plan, status_code=200)
+    # else:
+    #     return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
+    #                         status_code=503)
+
+    try:
+        # Query the database to find the user by email
+        plans = plans_collection.find({"email": email})
+
+        # If user is found, return user data as JSON
+        if plans:
+            for plan in plans:
+                plan["_id"] = str(plan["_id"])
+                plan = plan["plan"]
+                return JSONResponse(content=plan, status_code=200)
+        else:
+            raise HTTPException(status_code=404, detail="No plan not available yet. Please try again later.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # New API endpoint to check if email and password are valid
@@ -237,6 +259,7 @@ async def add_user(request: Request, db=Depends(get_db)):
         # Insert the new user into the database
         db.users.insert_one(new_user)
         db.history.insert_one({"email": email})
+        db.plans.insert_one({"email": email, "plan": []})
 
         return JSONResponse(content={"message": "User added successfully"}, status_code=201)
 
@@ -303,14 +326,6 @@ async def update_user_history(email: str, request: Request):
     try:
         # Parse request JSON data
         data = await request.json()
-        #
-        # # Update user information in the database
-        # result = db.history.update_one({"email": email}, {"$set": data})
-        #
-        # if result.modified_count == 1:
-        #     return {"message": "User history updated successfully"}
-        # else:
-        #     raise HTTPException(status_code=404, detail="User history not found")
 
         user = db.history.find_one({"email": email})
 
@@ -348,6 +363,24 @@ async def update_user_history(email: str, request: Request):
 
     except HTTPException as e:
         raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/get-user-history/{email}")
+async def get_user_history(email: str):
+    try:
+        # Query the database to find the user by email
+        users = history_collection.find({"email": email})
+
+        # If user is found, return user data as JSON
+        if users:
+            for user in users:
+                user["_id"] = str(user["_id"])
+                user = user["history"]
+                return JSONResponse(content=user, status_code=200)
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -393,14 +426,18 @@ def get_templates(vacation_type: str):
         templates = templates_collection.find({"vacationType": vacation_type})
 
         additional_data_template = additionalData_collection.find_one({"vacationType": vacation_type})
-        # additional_data_template = additional_data_template_cursor.next()
 
         # If template is found, return template data as JSON
         if templates:
             for temp in templates:
+                new_index = (temp.get("index", 0) + 1) % 10  # Get the current index or default to 0 if it doesn't exist
+                templates_collection.update_one(
+                    {"_id": temp["_id"]},
+                    {"$set": {"index": new_index}}
+                )
                 temp["_id"] = str(temp["_id"])
-                temp = temp['template']
-                return set_data_to_templates(temp, additional_data_template, vacation_type)
+                temp = temp["template"]
+                return set_data_to_templates(temp, additional_data_template, vacation_type, new_index)
 
         else:
             raise HTTPException(status_code=404, detail="Template not found")
@@ -408,8 +445,10 @@ def get_templates(vacation_type: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def set_data_to_templates(template: str, additional_data_template, vacation_type: str):
+def set_data_to_templates(template: str, additional_data_template, vacation_type: str, index):
     try:
+        if index == 9:
+            analyze_data(vacation_type)
         if user_details['anotherCityChecked'] and not user_details['returnCountry'] == '':
             template += f"We would like to return from the country {user_details['returnCountry']}. " \
                         f"When the trip will include travel to this country. "
@@ -438,15 +477,15 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
         if not user_details['additionalData'] == []:
             for additional in user_details['additionalData']:
                 template += f"In addition, it is important - {additional}. "
+
                 # Define the additional data to push
-                # data = additional  # Modify this according to your additional data structure
-                # # Update the document by pushing additional data
-                # result = additionalData_collection.update_one(
-                #     {"_id": additional_data_template["_id"]},
-                #     {"$push": {"data": data}}
-                # )
-                # response = analyze_data(vacation_type)
-                # print(response)
+                data = additional
+                result = additionalData_collection.update_one(
+                    {"_id": additional_data_template["_id"]},
+                    {"$push": {"data": data}}
+                )
+
+
 
         # Replace placeholders with variables
         formatted_trip_details = template.format(ages=user_details['ages'], date1=str(user_details['dates'][0]),
@@ -493,71 +532,69 @@ def assist_analyze_data(user_message):
 
 def analyze_data(vacation_type: str):
     try:
-        # global safe_plan
-        # data = await request.json()
-        # user_data = get_user_details(data)
-
-        # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
-
         additional_data_template = additionalData_collection.find_one({"vacationType": vacation_type})
-        # additional_data_template = additional_data_template_cursor.next()
 
-        # If template is found, return template data as JSON
         if additional_data_template:
-            response = assist_analyze_data("Please review the array: " + str(additional_data_template['data']) + " If you find something that returns many times, just send it back, without any other words.")
-            return response
+            response = assist_analyze_data("Please review the array: " + str(additional_data_template['data']) +
+                                           " If you find something that returns many times, just send it back,"
+                                           " without any other words. if didn't found - return 'NOT FOUND'")
+            if not response == 'NOT FOUND':
+                templates = templates_collection.find_one({"vacationType": vacation_type})
+                templates_collection.update_one(
+                    {"_id": templates["_id"]},
+                    {"$set": {"template": templates["template"] + " In addition, " + response}}
+                )
+
+                additionalData_collection.update_one(
+                    {"_id": additional_data_template["_id"]},
+                    {"$set": {"data": []}}
+                )
 
         else:
             raise HTTPException(status_code=404, detail="Template not found")
-        # user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
-
-        # background_tasks.add_task(assist_analyze_data, user_message)
-
-        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
-        # return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/get-locations-array")
-async def get_locations_array(request: Request):
-    try:
-        data = await request.json()
-
-        # Extract restaurant locations from dictionary format
-        restaurant_locations_dict_format = []
-        for city, restaurants in data["restaurant_recommendation"].items():
-            if "address" in restaurants:
-                restaurant_locations_dict_format.append(restaurants["address"])
-
-        # Extract restaurant locations from string format
-        restaurant_locations_str_format = []
-        for city, restaurants in data["restaurant_recommendation"].items():
-            if isinstance(restaurants, dict):
-                for restaurant_details in restaurants.values():
-                    if "Location" in restaurant_details:
-                        location_info = restaurant_details.split(";")
-                        for info in location_info:
-                            if info.strip().startswith("Location:"):
-                                location = info.strip().split(":")[1].strip()
-                                restaurant_locations_str_format.append(location)
-
-        # Combine both restaurant location lists
-        restaurant_locations = restaurant_locations_dict_format + restaurant_locations_str_format
-
-        # Extract accommodation locations
-        accommodation_locations = []
-        for city, hotels in data["accommodation"].items():
-            for hotel_info in hotels.values():
-                if "Location" in hotel_info:
-                    accommodation_locations.append(hotel_info["Location"])
-
-        return JSONResponse(content={"restaurant_locations": restaurant_locations,
-                                     "accommodation_locations": accommodation_locations}, status_code=200)
-
-    except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
+# @app.post("/get-locations-array")
+# async def get_locations_array(request: Request):
+#     try:
+#         data = await request.json()
+#
+#         # Extract restaurant locations from dictionary format
+#         restaurant_locations_dict_format = []
+#         for city, restaurants in data["restaurant_recommendation"].items():
+#             if "address" in restaurants:
+#                 restaurant_locations_dict_format.append(restaurants["address"])
+#
+#         # Extract restaurant locations from string format
+#         restaurant_locations_str_format = []
+#         for city, restaurants in data["restaurant_recommendation"].items():
+#             if isinstance(restaurants, dict):
+#                 for restaurant_details in restaurants.values():
+#                     if "Location" in restaurant_details:
+#                         location_info = restaurant_details.split(";")
+#                         for info in location_info:
+#                             if info.strip().startswith("Location:"):
+#                                 location = info.strip().split(":")[1].strip()
+#                                 restaurant_locations_str_format.append(location)
+#
+#         # Combine both restaurant location lists
+#         restaurant_locations = restaurant_locations_dict_format + restaurant_locations_str_format
+#
+#         # Extract accommodation locations
+#         accommodation_locations = []
+#         for city, hotels in data["accommodation"].items():
+#             for hotel_info in hotels.values():
+#                 if "Location" in hotel_info:
+#                     accommodation_locations.append(hotel_info["Location"])
+#
+#         return JSONResponse(content={"restaurant_locations": restaurant_locations,
+#                                      "accommodation_locations": accommodation_locations}, status_code=200)
+#
+#     except Exception as e:
+#         return HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/update-general-template")
