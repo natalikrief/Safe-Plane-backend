@@ -203,7 +203,12 @@ async def get_improved_response(email: str):
             for plan in plans:
                 plan["_id"] = str(plan["_id"])
                 plan = plan["plan"]
-                return JSONResponse(content=plan, status_code=200)
+                if not plan == []:
+                    return JSONResponse(content=plan, status_code=200)
+                else:
+                    return JSONResponse(
+                        content={"message": "No improved response available yet. Please try again later."},
+                        status_code=503)
         else:
             return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
                                      status_code=503)
