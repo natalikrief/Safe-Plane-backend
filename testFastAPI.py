@@ -36,7 +36,6 @@ additionalData_collection = db['additionalData']
 plans_collection = db['plans']
 
 user_details = {}
-safe_plan = None
 response_semaphore = asyncio.Semaphore(1)
 
 
@@ -87,7 +86,6 @@ def get_instructions():
 
 async def assist_improve_response(user_message, email):
     try:
-        global safe_plan
         gpt_response = openai.chat.completions.create(
             model="gpt-4-turbo",  # Specify the GPT model
             messages=[
@@ -97,19 +95,25 @@ async def assist_improve_response(user_message, email):
                 }
             ],
             temperature=1,
-            max_tokens=4000,
+            max_tokens=4096,
             response_format={"type": "json_object"},
         )
 
-        trip_plan = gpt_response.choices[0].message.content.strip()
-        # Acquire the semaphore to update safe_plan
-        # async with response_semaphore:
+        # trip_plan = gpt_response.choices[0].message.content.strip()
 
+        response_messages = gpt_response.choices[0].message
+        gpt_response_content = response_messages['content']
+        continuation_token = response_messages.get('model_result', {}).get('continuation', None)
+
+        trip_plan = gpt_response_content.strip()
         db.plans.update_one(
             {"email": email},
             {"$set": {"plan": json.loads(trip_plan)}}
         )
-            # safe_plan = json.loads(trip_plan)
+
+        # If there's a continuation token, call the function recursively
+        if continuation_token:
+            await assist_improve_response(user_message="", email=email, continuation_token=continuation_token)
 
         # return json.loads(trip_plan)
     except Exception as e:
@@ -120,7 +124,6 @@ async def assist_improve_response(user_message, email):
 @app.post("/generate-response")
 async def generate_response(request: Request, background_tasks: BackgroundTasks):
     try:
-        global safe_plan
         data = await request.json()
         email = request.query_params.get("email")
 
@@ -131,54 +134,24 @@ async def generate_response(request: Request, background_tasks: BackgroundTasks)
 
         user_data = get_user_details(data)
         general_template = get_general_template()
-        # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
         user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
 
         background_tasks.add_task(assist_improve_response, user_message, email)
 
-        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
         return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
 
-    # try:
-    #     data = await request.json()
-    #     user_message = get_user_details(data)
-    #     general_template = get_general_template()
-    #
-    #     gpt_response = openai.chat.completions.create(
-    #         model="gpt-4-turbo",  # Specify the GPT model
-    #         messages=[
-    #             {
-    #                 "role": "user",
-    #                 "content": user_message
-    #             }
-    #         ],
-    #         temperature=1,
-    #         max_tokens=2500,
-    #         response_format={"type": "json_object"},
-    #     )
-    #
-    #     trip_plan = gpt_response.choices[0].message.content.strip()
-    #     # return trip_plan
-    #     return JSONResponse(content={"plan": json.loads(trip_plan), "general_template": general_template},
-    #                         status_code=200)
-    #
-    # except Exception as e:
-    #     return HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/improve-response")
 async def improve_response(request: Request, background_tasks: BackgroundTasks):
     try:
-        global safe_plan
         data = await request.json()
         user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
 
         background_tasks.add_task(assist_improve_response, user_message)
 
-        # return JSONResponse(content=json.loads(safe_plan), status_code=200)
         return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
 
     except Exception as e:
@@ -187,12 +160,6 @@ async def improve_response(request: Request, background_tasks: BackgroundTasks):
 
 @app.get("/get-improved-response/{email}")
 async def get_improved_response(email: str):
-    # global safe_plan
-    # if safe_plan:
-    #     return JSONResponse(content=safe_plan, status_code=200)
-    # else:
-    #     return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
-    #                         status_code=503)
 
     try:
         # Query the database to find the user by email
@@ -516,7 +483,6 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
 
 def assist_analyze_data(user_message):
     try:
-        # global safe_plan
         gpt_response = openai.chat.completions.create(
             model="gpt-4-turbo",  # Specify the GPT model
             messages=[
@@ -531,12 +497,8 @@ def assist_analyze_data(user_message):
         )
 
         response = gpt_response.choices[0].message.content.strip()
-        # Acquire the semaphore to update safe_plan
-        # async with response_semaphore:
-        #     safe_plan = json.loads(trip_plan)
         return response
 
-        # return json.loads(trip_plan)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
