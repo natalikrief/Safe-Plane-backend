@@ -123,6 +123,12 @@ async def generate_response(request: Request, background_tasks: BackgroundTasks)
         global safe_plan
         data = await request.json()
         email = request.query_params.get("email")
+
+        db.plans.update_one(
+            {"email": email},
+            {"$set": {"plan": []}}
+        )
+
         user_data = get_user_details(data)
         general_template = get_general_template()
         # user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
