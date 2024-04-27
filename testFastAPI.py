@@ -8,7 +8,6 @@ from pymongo.mongo_client import MongoClient
 import openai
 from fastapi.middleware.cors import CORSMiddleware
 import json
-import re
 import asyncio
 
 app = FastAPI()
@@ -200,7 +199,8 @@ async def get_improved_response(email: str):
                 plan = plan["plan"]
                 return JSONResponse(content=plan, status_code=200)
         else:
-            raise HTTPException(status_code=404, detail="No plan not available yet. Please try again later.")
+            return JSONResponse(content={"message": "No improved response available yet. Please try again later."},
+                                     status_code=503)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
