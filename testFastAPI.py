@@ -99,21 +99,21 @@ async def assist_improve_response(user_message, email):
             response_format={"type": "json_object"},
         )
 
-        # trip_plan = gpt_response.choices[0].message.content.strip()
+        trip_plan = gpt_response.choices[0].message.content.strip()
 
-        response_messages = gpt_response.choices[0].message
-        gpt_response_content = response_messages['content']
-        continuation_token = response_messages.get('model_result', {}).get('continuation', None)
+        # response_messages = gpt_response.choices[0].message
+        # gpt_response_content = response_messages.content
+        # continuation_token = response_messages.get('model_result', {}).get('continuation', None)
 
-        trip_plan = gpt_response_content.strip()
+        # trip_plan = gpt_response_content.strip()
         db.plans.update_one(
             {"email": email},
             {"$set": {"plan": json.loads(trip_plan)}}
         )
 
-        # If there's a continuation token, call the function recursively
-        if continuation_token:
-            await assist_improve_response(user_message="", email=email, continuation_token=continuation_token)
+        # # If there's a continuation token, call the function recursively
+        # if continuation_token:
+        #     await assist_improve_response(user_message="", email=email, continuation_token=continuation_token)
 
         # return json.loads(trip_plan)
     except Exception as e:
