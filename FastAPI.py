@@ -313,7 +313,7 @@ async def update_user_history(email: str, request: Request):
             )
 
             if result.modified_count == 1:
-                return {"message": "User history updated successfully"}
+                return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
             else:
                 raise HTTPException(status_code=500, detail="Failed to update user history")
         else:
