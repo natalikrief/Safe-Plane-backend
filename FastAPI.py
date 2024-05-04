@@ -342,20 +342,18 @@ async def remove_from_history(email: str, index: int):
         user = db.history.find_one({"email": email})
 
         if user:
-            # Check if index is within the range of user's history
-            if 1 <= index <= user.get("history_count", 0):
-                # Remove the history item at the specified index
-                result = db.history.update_one(
-                    {"email": email},
-                    {"$pull": {"history": {"index": index}}, "$inc": {"history_count": -1}}
-                )
+            result = db.history.update_one(
+                {"email": email},
+                {"$pull": {"history": {"index": index}}, "$inc": {"history_count": -1}}
+            )
 
-                if result.modified_count == 1:
-                    return {"message": f"Item at index {index} removed from user history successfully"}
-                else:
-                    raise HTTPException(status_code=500, detail="Failed to remove item from user history")
+            if result.modified_count == 1:
+                return JSONResponse(content={"message": f"Item at index {index} removed from user history "
+                                                        f"successfully"}, status_code=200)
+
             else:
-                raise HTTPException(status_code=404, detail="Index out of range")
+                raise HTTPException(status_code=500, detail="Failed to remove item from user history")
+
         else:
             raise HTTPException(status_code=404, detail="User not found")
 
