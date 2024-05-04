@@ -300,8 +300,9 @@ async def update_user_history(email: str, request: Request):
 
         if user:
             # If user exists, update their history with an incrementing index
+            index = user.get("history_count", 0) + 1  # Increment index
             history_item = {
-                "index": user.get("history_count", 0) + 1,  # Increment index
+                "index": index,
                 "data": data,
             }
 
@@ -317,8 +318,9 @@ async def update_user_history(email: str, request: Request):
                 raise HTTPException(status_code=500, detail="Failed to update user history")
         else:
             # If user not found, create a new entry
+            index = 1
             history_item = {
-                "index": 1,  # Start index from 1
+                "index": index,  # Start index from 1
                 "data": data
             }
 
@@ -328,10 +330,8 @@ async def update_user_history(email: str, request: Request):
                 "history_count": 1
             })
 
-            return {"message": "User history created successfully"}
+            return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
 
-    except HTTPException as e:
-        raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
