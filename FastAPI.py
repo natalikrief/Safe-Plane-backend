@@ -101,21 +101,12 @@ async def assist_improve_response(user_message, email):
 
         trip_plan = gpt_response.choices[0].message.content.strip()
 
-        # response_messages = gpt_response.choices[0].message
-        # gpt_response_content = response_messages.content
-        # continuation_token = response_messages.get('model_result', {}).get('continuation', None)
-
         # trip_plan = gpt_response_content.strip()
         db.plans.update_one(
             {"email": email},
             {"$set": {"plan": json.loads(trip_plan)}}
         )
 
-        # # If there's a continuation token, call the function recursively
-        # if continuation_token:
-        #     await assist_improve_response(user_message="", email=email, continuation_token=continuation_token)
-
-        # return json.loads(trip_plan)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -311,7 +302,7 @@ async def update_user_history(email: str, request: Request):
             # If user exists, update their history with an incrementing index
             history_item = {
                 "index": user.get("history_count", 0) + 1,  # Increment index
-                "data": data
+                "data": data,
             }
 
             # Update user information in the database
@@ -341,6 +332,33 @@ async def update_user_history(email: str, request: Request):
 
     except HTTPException as e:
         raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/remove-from-history/{email}/{index}")
+async def remove_from_history(email: str, index: int):
+    try:
+        user = db.history.find_one({"email": email})
+
+        if user:
+            # Check if index is within the range of user's history
+            if 1 <= index <= user.get("history_count", 0):
+                # Remove the history item at the specified index
+                result = db.history.update_one(
+                    {"email": email},
+                    {"$pull": {"history": {"index": index}}, "$inc": {"history_count": -1}}
+                )
+
+                if result.modified_count == 1:
+                    return {"message": f"Item at index {index} removed from user history successfully"}
+                else:
+                    raise HTTPException(status_code=500, detail="Failed to remove item from user history")
+            else:
+                raise HTTPException(status_code=404, detail="Index out of range")
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -463,8 +481,6 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
                     {"$push": {"data": data}}
                 )
 
-
-
         # Replace placeholders with variables
         formatted_trip_details = template.format(ages=user_details['ages'], date1=str(user_details['dates'][0]),
                                                  date2=str(user_details['dates'][1]),
@@ -493,7 +509,6 @@ def assist_analyze_data(user_message):
             ],
             temperature=1,
             max_tokens=2500,
-            # response_format={"type": "json_object"},
         )
 
         response = gpt_response.choices[0].message.content.strip()
@@ -528,46 +543,6 @@ def analyze_data(vacation_type: str):
 
     except Exception as e:
         return HTTPException(status_code=500, detail=str(e))
-
-
-# @app.post("/get-locations-array")
-# async def get_locations_array(request: Request):
-#     try:
-#         data = await request.json()
-#
-#         # Extract restaurant locations from dictionary format
-#         restaurant_locations_dict_format = []
-#         for city, restaurants in data["restaurant_recommendation"].items():
-#             if "address" in restaurants:
-#                 restaurant_locations_dict_format.append(restaurants["address"])
-#
-#         # Extract restaurant locations from string format
-#         restaurant_locations_str_format = []
-#         for city, restaurants in data["restaurant_recommendation"].items():
-#             if isinstance(restaurants, dict):
-#                 for restaurant_details in restaurants.values():
-#                     if "Location" in restaurant_details:
-#                         location_info = restaurant_details.split(";")
-#                         for info in location_info:
-#                             if info.strip().startswith("Location:"):
-#                                 location = info.strip().split(":")[1].strip()
-#                                 restaurant_locations_str_format.append(location)
-#
-#         # Combine both restaurant location lists
-#         restaurant_locations = restaurant_locations_dict_format + restaurant_locations_str_format
-#
-#         # Extract accommodation locations
-#         accommodation_locations = []
-#         for city, hotels in data["accommodation"].items():
-#             for hotel_info in hotels.values():
-#                 if "Location" in hotel_info:
-#                     accommodation_locations.append(hotel_info["Location"])
-#
-#         return JSONResponse(content={"restaurant_locations": restaurant_locations,
-#                                      "accommodation_locations": accommodation_locations}, status_code=200)
-#
-#     except Exception as e:
-#         return HTTPException(status_code=500, detail=str(e))
 
 
 @app.put("/update-general-template")
