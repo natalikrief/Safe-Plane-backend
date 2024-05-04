@@ -1,4 +1,4 @@
-web: gunicorn -w 4 -k uvicorn.workers.UvicornWorker testFastAPI:app --timeout 600 -t 600 --keep-alive 600
+web: gunicorn -w 4 -k uvicorn.workers.UvicornWorker FastAPI:app --timeout 600 -t 600 --keep-alive 600
 
 #web: uvicorn testFastAPI:app --config-file uvicorn_conf.py
 
