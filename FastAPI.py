@@ -373,7 +373,10 @@ async def get_user_history(email: str):
         if users:
             for user in users:
                 user["_id"] = str(user["_id"])
-                user = user["history"]
+                if "history" in user:
+                    user = user["history"]
+                else:
+                    raise HTTPException(status_code=404, detail="History not found")
                 return JSONResponse(content=user, status_code=200)
         else:
             raise HTTPException(status_code=404, detail="User not found")
