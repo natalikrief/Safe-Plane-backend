@@ -163,7 +163,7 @@ async def get_improved_response(email: str):
                 plan = plan["plan"]
                 if not plan == []:
                     # Adding 'saveable' entry with value 'False' to the plan dictionary
-                    plan["saveable"] = False
+                    plan["saveable"] = True
                     return JSONResponse(content=plan, status_code=200)
                 else:
                     return JSONResponse(
