@@ -391,7 +391,7 @@ async def remove_from_history(email: str, index: int):
         if user:
             result = db.history.update_one(
                 {"email": email},
-                {"$pull": {"history": {"index": index}}, "$inc": {"history_count": -1}}
+                {"$pull": {"history": {"index": index}}}
             )
 
             if result.modified_count == 1:
