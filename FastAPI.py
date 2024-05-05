@@ -507,7 +507,7 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
                 template += f"We are {amount} adults. "
             else:
                 template += f"We are {user_details['adultsAmount']} adults. "
-        if not user_details['childrenAmount'] is None:
+        if not user_details['childrenAmount'] is None and vacation_type == "Family Vacation":
             template += f"Please includes {user_details['childrenAmount']} children. "
         if not user_details['carRentalCompany'] == '':
             template += f"In addition, notice that {user_details['carRentalCompany']} - for rent a car. "
