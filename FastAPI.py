@@ -162,6 +162,8 @@ async def get_improved_response(email: str):
                 plan["_id"] = str(plan["_id"])
                 plan = plan["plan"]
                 if not plan == []:
+                    # Adding 'saveable' entry with value 'False' to the plan dictionary
+                    plan["saveable"] = False
                     return JSONResponse(content=plan, status_code=200)
                 else:
                     return JSONResponse(
@@ -299,8 +301,8 @@ async def update_user_history(email: str, request: Request):
         user = db.history.find_one({"email": email})
 
         if user:
-            # If user exists, update their history with an incrementing index
-            index = user.get("history_count", 0) + 1  # Increment index
+            # If user exists, get the latest index and increment it
+            index = user.get("latest_index", 0) + 1
             history_item = {
                 "index": index,
                 "data": data,
@@ -309,7 +311,7 @@ async def update_user_history(email: str, request: Request):
             # Update user information in the database
             result = db.history.update_one(
                 {"email": email},
-                {"$push": {"history": history_item}, "$inc": {"history_count": 1}}
+                {"$push": {"history": history_item}, "$set": {"latest_index": index}}
             )
 
             if result.modified_count == 1:
@@ -317,7 +319,7 @@ async def update_user_history(email: str, request: Request):
             else:
                 raise HTTPException(status_code=500, detail="Failed to update user history")
         else:
-            # If user not found, create a new entry
+            # If user not found, create a new entry with index 1
             index = 1
             history_item = {
                 "index": index,  # Start index from 1
@@ -327,13 +329,58 @@ async def update_user_history(email: str, request: Request):
             db.history.insert_one({
                 "email": email,
                 "history": [history_item],
-                "history_count": 1
+                "latest_index": index
             })
 
             return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# @app.put("/update-user-history/{email}")
+# async def update_user_history(email: str, request: Request):
+#     try:
+#         # Parse request JSON data
+#         data = await request.json()
+#
+#         user = db.history.find_one({"email": email})
+#
+#         if user:
+#             # If user exists, update their history with an incrementing index
+#             index = user.get("history_count", 0) + 1  # Increment index
+#             history_item = {
+#                 "index": index,
+#                 "data": data,
+#             }
+#
+#             # Update user information in the database
+#             result = db.history.update_one(
+#                 {"email": email},
+#                 {"$push": {"history": history_item}, "$inc": {"history_count": 1}}
+#             )
+#
+#             if result.modified_count == 1:
+#                 return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
+#             else:
+#                 raise HTTPException(status_code=500, detail="Failed to update user history")
+#         else:
+#             # If user not found, create a new entry
+#             index = 1
+#             history_item = {
+#                 "index": index,  # Start index from 1
+#                 "data": data
+#             }
+#
+#             db.history.insert_one({
+#                 "email": email,
+#                 "history": [history_item],
+#                 "history_count": 1
+#             })
+#
+#             return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
+#
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/remove-from-history/{email}/{index}")
