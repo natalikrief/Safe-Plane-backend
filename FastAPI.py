@@ -543,7 +543,6 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
                                                  budget2=str(user_details['budget'][1]),
                                                  stars=str(user_details['stars']))
 
-        formatted_trip_details += "Please prepare a vacation plan." + get_instructions()
         return formatted_trip_details
 
     except Exception as e:
