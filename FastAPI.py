@@ -71,8 +71,6 @@ def get_general_template():
 def get_instructions():
     try:
         # Fetch the instructions from the database
-        # instructions_doc = templates_collection.find_one({}, {"_id": 0, "instructions": 1})
-
         instructions_doc = templates_collection.find_one({"instructions": {"$exists": True}},
                                                          {"_id": 0, "instructions": 1})
         # If instructions are found, return them
@@ -101,7 +99,6 @@ async def assist_improve_response(user_message, email):
 
         trip_plan = gpt_response.choices[0].message.content.strip()
 
-        # trip_plan = gpt_response_content.strip()
         db.plans.update_one(
             {"email": email},
             {"$set": {"plan": json.loads(trip_plan)}}
@@ -125,23 +122,9 @@ async def generate_response(request: Request, background_tasks: BackgroundTasks)
 
         user_data = get_user_details(data)
         general_template = get_general_template()
-        user_message = user_data + "Please improve your answer according to: " + general_template + get_instructions()
+        user_message = user_data + general_template + get_instructions()
 
         background_tasks.add_task(assist_improve_response, user_message, email)
-
-        return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
-
-    except Exception as e:
-        return HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/improve-response")
-async def improve_response(request: Request, background_tasks: BackgroundTasks):
-    try:
-        data = await request.json()
-        user_message = str(data['plan']) + "Please improve your answer according to: " + str(data['general_template']) + get_instructions()
-
-        background_tasks.add_task(assist_improve_response, user_message)
 
         return JSONResponse(content={"message": "Response generation initiated. Please check back later."}, status_code=200)
 
@@ -339,51 +322,6 @@ async def update_user_history(email: str, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# @app.put("/update-user-history/{email}")
-# async def update_user_history(email: str, request: Request):
-#     try:
-#         # Parse request JSON data
-#         data = await request.json()
-#
-#         user = db.history.find_one({"email": email})
-#
-#         if user:
-#             # If user exists, update their history with an incrementing index
-#             index = user.get("history_count", 0) + 1  # Increment index
-#             history_item = {
-#                 "index": index,
-#                 "data": data,
-#             }
-#
-#             # Update user information in the database
-#             result = db.history.update_one(
-#                 {"email": email},
-#                 {"$push": {"history": history_item}, "$inc": {"history_count": 1}}
-#             )
-#
-#             if result.modified_count == 1:
-#                 return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
-#             else:
-#                 raise HTTPException(status_code=500, detail="Failed to update user history")
-#         else:
-#             # If user not found, create a new entry
-#             index = 1
-#             history_item = {
-#                 "index": index,  # Start index from 1
-#                 "data": data
-#             }
-#
-#             db.history.insert_one({
-#                 "email": email,
-#                 "history": [history_item],
-#                 "history_count": 1
-#             })
-#
-#             return JSONResponse(content={"message": "User history created successfully", "index": index}, status_code=200)
-#
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.delete("/remove-from-history/{email}/{index}")
 async def remove_from_history(email: str, index: int):
@@ -497,7 +435,7 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
         if not user_details['returnCountry'] == 'As destination country':
             template += f"We would like to return from the country {user_details['returnCountry']}. " \
                         f"When the trip will include travel to this country. "
-        if not user_details['cities'] == []:
+        if not user_details['cities'] == '':
             template += f"In {user_details['destCountry']} we would like to travel in the cities " \
                         f"{user_details['cities']}. "
         if not user_details['adultsAmount'] is None:
