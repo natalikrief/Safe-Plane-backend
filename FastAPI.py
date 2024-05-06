@@ -442,7 +442,6 @@ def get_user_details(data):
                 'destCountry': data['destCountry'],
                 'dates': data['dates'],
                 'ages': data['ages'],
-                'anotherCityChecked': data['anotherCityChecked'],
                 'returnCountry': data['returnCountry'],
                 'budget': data['budget'],
                 'hotel': data['hotel'],
@@ -495,7 +494,7 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
     try:
         if index == 9:
             analyze_data(vacation_type)
-        if user_details['anotherCityChecked'] and not user_details['returnCountry'] == '':
+        if not user_details['returnCountry'] == 'As destination country':
             template += f"We would like to return from the country {user_details['returnCountry']}. " \
                         f"When the trip will include travel to this country. "
         if not user_details['cities'] == []:
