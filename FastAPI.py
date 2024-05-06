@@ -516,15 +516,9 @@ def set_data_to_templates(template: str, additional_data_template, vacation_type
         if not user_details['bars'] == '':
             template += f"About bars - {user_details['bars']}. "
         if not user_details['beach'] == '':
-            if user_details['beach'] == 'Yes' or user_details['beach'] == 'yes':
-                template += f"About beach - please include a stay at the beach."
-            else:
-                template += f"About beach - do not include. "
+            template += f"About beach - {user_details['beach']}. "
         if not user_details['parking'] == '':
-            if user_details['parking'] == 'Yes' or user_details['parking'] == 'yes':
-                template += f"About parking - please include parking. "
-            else:
-                template += f"About parking - do not include. "
+            template += f"About parking - {user_details['parking']}. "
         if not user_details['restaurants'] == '':
             template += f"About restaurants - {user_details['restaurants']}. "
         if not user_details['hotel'] == '':
