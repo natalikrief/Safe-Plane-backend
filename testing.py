@@ -19,7 +19,6 @@ class TestEndpoints(unittest.TestCase):
             "destCountry": "Budapest",
             "dates": [08.05,12.05],
             "ages": "3-7",
-            "anotherCityChecked": "False",
             "returnCountry": "As destination country",
             "budget": [9000, 15000],
             "hotel": "in the center",
