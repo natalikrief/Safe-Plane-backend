@@ -634,6 +634,14 @@ async def update_general_template(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/")
+async def get_backend():
+    try:
+        return JSONResponse(content="Welcome to Safe Plan server", status_code=200)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 # Run the FastAPI application with Uvicorn
 if __name__ == "__main__":
     import uvicorn
